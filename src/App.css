@@ -170,7 +170,7 @@ button:not(:disabled):active {
 }
 
 /* ─── Inputs ─── */
-input {
+input, select {
   padding: 0.5rem 0.7rem;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
@@ -180,7 +180,7 @@ input {
   transition: border-color 0.15s;
 }
 
-input:focus {
+input:focus, select:focus {
   outline: none;
   border-color: #2563eb;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
@@ -549,6 +549,31 @@ label {
 .pill-outcome.loss { background: #fee2e2; color: #991b1b; }
 .pill-outcome.breakeven { background: #fef3c7; color: #92400e; }
 .pill-outcome.unknown { background: #f3f4f6; color: #6b7280; }
+.pill-outcome.auto_closed { background: #fed7aa; color: #9a3412; }
+
+/* ─── Risk config ─── */
+.risk-config {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e5e7eb;
+}
+.risk-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.risk-row input {
+  width: 80px;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+}
+.risk-unit {
+  font-size: 0.8rem;
+  color: #6b7280;
+}
 
 /* ─── Market ─── */
 .market-controls {
@@ -604,11 +629,28 @@ label {
 }
 
 .chart-card {
-  background: #fafafa;
+  background: #ffffff;
   border: 1px solid #e5e7eb;
   border-radius: 10px;
-  padding: 1rem;
+  padding: 0.5rem;
   min-height: 200px;
+}
+
+.day-trades-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.day-trade-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.4rem 0.65rem;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 0.8rem;
 }
 
 /* ─── Trade table ─── */
@@ -680,6 +722,144 @@ label {
 
 .cell-pnl.positive { color: #16a34a; }
 .cell-pnl.negative { color: #dc2626; }
+
+/* ─── Trade events timeline ─── */
+.trade-row-group {
+  border: none;
+}
+
+.trade-row-clickable {
+  display: grid;
+  grid-template-columns: 1fr 0.8fr 0.7fr 0.6fr 0.6fr 0.6fr 0.5fr 0.6fr 0.7fr 0.6fr 0.8fr;
+  align-items: center;
+  padding: 0.5rem 0.65rem;
+  cursor: pointer;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 0.82rem;
+  color: #1e293b;
+  transition: background 0.1s;
+}
+
+.trade-row-clickable:hover {
+  background: #f0f4ff;
+}
+
+.trade-row-clickable.expanded {
+  background: #f0f4ff;
+  border-bottom: none;
+}
+
+.trade-events-panel {
+  background: #f8fafc;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 0.75rem 1rem 0.75rem 1.5rem;
+}
+
+.events-loading,
+.events-empty {
+  font-size: 0.8rem;
+  color: #9ca3af;
+  margin: 0;
+  padding: 0.25rem 0;
+}
+
+.events-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  position: relative;
+}
+
+.events-timeline::before {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 12px;
+  bottom: 12px;
+  width: 2px;
+  background: #e5e7eb;
+}
+
+.event-item {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  position: relative;
+  padding: 0.4rem 0;
+}
+
+.event-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #d1d5db;
+  border: 2px solid #fff;
+  flex-shrink: 0;
+  margin-top: 2px;
+  z-index: 1;
+}
+
+.event-item.event-opened .event-dot { background: #2563eb; }
+.event-item.event-breakeven .event-dot { background: #f59e0b; }
+.event-item.event-closed .event-dot { background: #6b7280; }
+
+.event-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.event-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.15rem;
+}
+
+.event-type-pill {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.event-type-pill.opened { background: #dbeafe; color: #1e40af; }
+.event-type-pill.breakeven { background: #fef3c7; color: #92400e; }
+.event-type-pill.closed { background: #f3f4f6; color: #6b7280; }
+
+.event-time {
+  font-size: 0.72rem;
+  color: #9ca3af;
+}
+
+.event-message {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #374151;
+}
+
+.event-data {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.event-data-item {
+  font-size: 0.72rem;
+  color: #6b7280;
+}
+
+.event-data-key {
+  font-weight: 600;
+  color: #9ca3af;
+  text-transform: uppercase;
+  font-size: 0.65rem;
+  letter-spacing: 0.02em;
+}
 
 /* ─── Logs ─── */
 .log-filters {

@@ -1,14 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import {
-  ResponsiveContainer,
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-  ReferenceLine,
-} from 'recharts'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { createChart, CandlestickSeries } from 'lightweight-charts'
 import { auth, provider } from './firebase'
 import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth'
 import './App.css'
@@ -24,6 +15,10 @@ const tabs = [
 ]
 
 const LOG_LEVELS = ['', 'TRADING', 'OANDA', 'INFO', 'ERROR', 'NO_TRADING', 'GPT']
+const INSTRUMENTS = [
+  { sym: 'SPX', label: 'S&P 500' },
+  { sym: 'NDX', label: 'Nasdaq 100' },
+]
 
 function App() {
   const [apiBase, setApiBase] = useState(defaultApiBase)
@@ -40,9 +35,13 @@ function App() {
   const [candles, setCandles] = useState(emptyPanel)
 
   const [logParams, setLogParams] = useState({ limit: 50, level: '', contains: '' })
-  const [openingDay, setOpeningDay] = useState(() => new Date().toISOString().slice(0, 10))
   const [candlesDay, setCandlesDay] = useState(() => new Date().toISOString().slice(0, 10))
   const [instrument, setInstrument] = useState('SPX')
+  const [expandedTradeId, setExpandedTradeId] = useState(null)
+  const [tradeEvents, setTradeEvents] = useState({ data: null, loading: false })
+  const [riskChf, setRiskChf] = useState({ value: 50, saving: false, loaded: false })
+
+  const chartContainerRef = useRef(null)
 
   const apiPrefix = useMemo(() => apiBase.replace(/\/$/, ''), [apiBase])
 
@@ -86,6 +85,30 @@ function App() {
     }
   }
 
+  const loadRisk = async () => {
+    try {
+      const data = await fetchJson('/api/config/risk')
+      setRiskChf((p) => ({ ...p, value: data.risk_chf, loaded: true }))
+    } catch {
+      // keep default
+    }
+  }
+
+  const saveRisk = async (val) => {
+    const num = Number(val)
+    if (!num || num <= 0) return
+    setRiskChf((p) => ({ ...p, saving: true }))
+    try {
+      await fetchJson('/api/config/risk', {
+        method: 'PUT',
+        body: JSON.stringify({ risk_chf: num }),
+      })
+      setRiskChf({ value: num, saving: false, loaded: true })
+    } catch {
+      setRiskChf((p) => ({ ...p, saving: false }))
+    }
+  }
+
   const loadBalance = async () => {
     setBalance((p) => ({ ...p, loading: true, error: null }))
     try {
@@ -120,6 +143,22 @@ function App() {
     }
   }
 
+  const toggleTradeEvents = async (oandaTradeId) => {
+    if (expandedTradeId === oandaTradeId) {
+      setExpandedTradeId(null)
+      setTradeEvents({ data: null, loading: false })
+      return
+    }
+    setExpandedTradeId(oandaTradeId)
+    setTradeEvents({ data: null, loading: true })
+    try {
+      const data = await fetchJson(`/api/trades/${oandaTradeId}/events`)
+      setTradeEvents({ data, loading: false })
+    } catch {
+      setTradeEvents({ data: [], loading: false })
+    }
+  }
+
   const loadPositions = async () => {
     setPositions((p) => ({ ...p, loading: true, error: null }))
     try {
@@ -130,48 +169,28 @@ function App() {
     }
   }
 
-  const loadOpening = async () => {
-    if (!openingDay) return
-    setOpeningRange((p) => ({ ...p, loading: true, error: null }))
-    try {
-      const data = await fetchJson(`/api/opening_range/${openingDay}?instrument=${instrument}`)
-      setOpeningRange({ data, loading: false, error: null })
-    } catch (err) {
-      setOpeningRange({ data: null, loading: false, error: err.message })
-    }
-  }
-
-  const loadCandles = async () => {
+  const loadMarketData = () => {
     if (!candlesDay) return
     setCandles((p) => ({ ...p, loading: true, error: null }))
-    try {
-      const data = await fetchJson(`/api/candles?day=${encodeURIComponent(candlesDay)}`)
-      setCandles({ data, loading: false, error: null })
-    } catch (err) {
-      setCandles({ data: null, loading: false, error: err.message })
-    }
+    fetchJson(`/api/candles?day=${encodeURIComponent(candlesDay)}`)
+      .then(data => setCandles({ data, loading: false, error: null }))
+      .catch(err => setCandles({ data: null, loading: false, error: err.message }))
+
+    setOpeningRange((p) => ({ ...p, loading: true, error: null }))
+    fetchJson(`/api/opening_range/${candlesDay}?instrument=${instrument}`)
+      .then(data => setOpeningRange({ data, loading: false, error: null }))
+      .catch(() => setOpeningRange({ data: null, loading: false, error: null }))
+
+    if (!trades.data) loadTrades()
   }
 
   useEffect(() => {
     loadStrategies()
     loadBalance()
+    loadRisk()
   }, [])
 
   const strategyEntries = strategies.data ? Object.entries(strategies.data) : []
-
-  const parseCandleData = () => {
-    if (!Array.isArray(candles.data)) return []
-    return candles.data.map((c, idx) => {
-      const ts = c.timestamp || c.t || c.s || idx
-      const close = c.c ?? c.close ?? c.price ?? c.vwap ?? null
-      return {
-        ts: String(ts),
-        close,
-        high: c.h ?? c.high,
-        low: c.l ?? c.low,
-      }
-    })
-  }
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
@@ -190,6 +209,94 @@ function App() {
     })
     return () => unsub()
   }, [])
+
+  /* ─────────────── CHART (lightweight-charts) ─────────────── */
+  useEffect(() => {
+    const container = chartContainerRef.current
+    if (!container || !Array.isArray(candles.data) || candles.data.length === 0) return
+
+    container.innerHTML = ''
+
+    const chart = createChart(container, {
+      width: container.clientWidth,
+      height: 420,
+      layout: { background: { type: 'solid', color: '#ffffff' }, textColor: '#374151', fontSize: 12 },
+      grid: { vertLines: { color: '#f3f4f6' }, horzLines: { color: '#f3f4f6' } },
+      timeScale: { timeVisible: true, secondsVisible: false, borderColor: '#e5e7eb' },
+      rightPriceScale: { borderColor: '#e5e7eb' },
+      crosshair: { mode: 0 },
+    })
+
+    const series = chart.addSeries(CandlestickSeries, {
+      upColor: '#16a34a', downColor: '#dc2626',
+      borderUpColor: '#16a34a', borderDownColor: '#dc2626',
+      wickUpColor: '#16a34a', wickDownColor: '#dc2626',
+    })
+
+    const sym = `I:${instrument}`
+    const data = candles.data
+      .filter(c => !c.sym || c.sym === sym)
+      .map(c => ({
+        time: Math.floor((c.s || 0) / 1000),
+        open: c.o ?? c.open,
+        high: c.h ?? c.high,
+        low: c.l ?? c.low,
+        close: c.c ?? c.close,
+      }))
+      .filter(d => d.open != null && d.time > 0)
+      .sort((a, b) => a.time - b.time)
+
+    if (data.length === 0) { chart.remove(); return }
+    series.setData(data)
+
+    // Opening range lines
+    const orData = openingRange.data
+    if (orData) {
+      series.createPriceLine({ price: Number(orData.high), color: '#16a34a', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: 'OR High' })
+      series.createPriceLine({ price: Number(orData.low), color: '#dc2626', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: 'OR Low' })
+    }
+
+    // Trade overlays
+    if (Array.isArray(trades.data)) {
+      const dayTrades = trades.data.filter(t => t.timestamp?.startsWith(candlesDay))
+      const candleTimes = data.map(d => d.time)
+
+      if (dayTrades.length > 0 && candleTimes.length > 0) {
+        const snapToCandle = (ts) =>
+          candleTimes.reduce((prev, curr) => Math.abs(curr - ts) < Math.abs(prev - ts) ? curr : prev)
+
+        const markers = dayTrades
+          .map(t => ({
+            time: snapToCandle(Math.floor(new Date(t.timestamp).getTime() / 1000)),
+            position: t.direction === 'LONG' ? 'belowBar' : 'aboveBar',
+            color: t.direction === 'LONG' ? '#16a34a' : '#dc2626',
+            shape: t.direction === 'LONG' ? 'arrowUp' : 'arrowDown',
+            text: `${t.direction} @ ${Number(t.fill_price || t.entry).toFixed(1)}`,
+          }))
+          .sort((a, b) => a.time - b.time)
+
+        series.setMarkers(markers)
+
+        dayTrades.forEach(t => {
+          if (t.fill_price != null)
+            series.createPriceLine({ price: Number(t.fill_price), color: '#2563eb', lineWidth: 1, lineStyle: 0, axisLabelVisible: true, title: 'Entry' })
+          if (t.sl != null)
+            series.createPriceLine({ price: Number(t.sl), color: '#dc2626', lineWidth: 1, lineStyle: 1, axisLabelVisible: true, title: 'SL' })
+          if (t.tp != null)
+            series.createPriceLine({ price: Number(t.tp), color: '#16a34a', lineWidth: 1, lineStyle: 1, axisLabelVisible: true, title: 'TP' })
+        })
+      }
+    }
+
+    chart.timeScale().fitContent()
+
+    const ro = new ResizeObserver(entries => {
+      if (entries[0]) chart.applyOptions({ width: entries[0].contentRect.width })
+    })
+    ro.observe(container)
+
+    return () => { ro.disconnect(); chart.remove() }
+  }, [activeTab, candles.data, openingRange.data, trades.data, candlesDay, instrument])
 
   /* ─────────────── ACCOUNT ─────────────── */
   const renderAccount = () => {
@@ -338,23 +445,68 @@ function App() {
                   </tr>
                 </thead>
                 <tbody>
-                  {trades.data.map((t) => (
-                    <tr key={t.id}>
-                      <td className="cell-date">{t.timestamp ? new Date(t.timestamp).toLocaleString('fr-CH', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'}</td>
-                      <td><span className="pill-strat">{t.strategy}</span></td>
-                      <td><span className={`pill-dir ${t.direction === 'LONG' ? 'long' : 'short'}`}>{t.direction}</span></td>
-                      <td>{t.entry != null ? Number(t.entry).toFixed(1) : '-'}</td>
-                      <td>{t.sl != null ? Number(t.sl).toFixed(1) : '-'}</td>
-                      <td>{t.tp != null ? Number(t.tp).toFixed(1) : '-'}</td>
-                      <td>{t.units != null ? Number(t.units).toFixed(1) : '-'}</td>
-                      <td>{t.fill_price != null ? Number(t.fill_price).toFixed(1) : '-'}</td>
-                      <td><span className={`pill-outcome ${t.outcome}`}>{t.outcome || 'unknown'}</span></td>
-                      <td className={`cell-pnl ${t.realized_pnl > 0 ? 'positive' : t.realized_pnl < 0 ? 'negative' : ''}`}>
-                        {t.realized_pnl != null ? `${t.realized_pnl > 0 ? '+' : ''}${Number(t.realized_pnl).toFixed(2)}` : '-'}
-                      </td>
-                      <td className="cell-id">{t.oanda_trade_id || '-'}</td>
-                    </tr>
-                  ))}
+                  {trades.data.map((t) => {
+                    const isExpanded = expandedTradeId === t.oanda_trade_id
+                    return (
+                      <tr key={t.id} className="trade-row-group">
+                        <td colSpan={11} style={{ padding: 0, border: 'none' }}>
+                          <div
+                            className={`trade-row-clickable ${isExpanded ? 'expanded' : ''}`}
+                            onClick={() => t.oanda_trade_id && toggleTradeEvents(t.oanda_trade_id)}
+                          >
+                            <span className="cell-date">{t.timestamp ? new Date(t.timestamp).toLocaleString('fr-CH', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'}</span>
+                            <span><span className="pill-strat">{t.strategy}</span></span>
+                            <span><span className={`pill-dir ${t.direction === 'LONG' ? 'long' : 'short'}`}>{t.direction}</span></span>
+                            <span>{t.entry != null ? Number(t.entry).toFixed(1) : '-'}</span>
+                            <span>{t.sl != null ? Number(t.sl).toFixed(1) : '-'}</span>
+                            <span>{t.tp != null ? Number(t.tp).toFixed(1) : '-'}</span>
+                            <span>{t.units != null ? Number(t.units).toFixed(1) : '-'}</span>
+                            <span>{t.fill_price != null ? Number(t.fill_price).toFixed(1) : '-'}</span>
+                            <span><span className={`pill-outcome ${t.outcome}`}>{t.outcome || 'unknown'}</span></span>
+                            <span className={`cell-pnl ${t.realized_pnl > 0 ? 'positive' : t.realized_pnl < 0 ? 'negative' : ''}`}>
+                              {t.realized_pnl != null ? `${t.realized_pnl > 0 ? '+' : ''}${Number(t.realized_pnl).toFixed(2)}` : '-'}
+                            </span>
+                            <span className="cell-id">{t.oanda_trade_id || '-'}</span>
+                          </div>
+                          {isExpanded && (
+                            <div className="trade-events-panel">
+                              {tradeEvents.loading && <p className="events-loading">Chargement...</p>}
+                              {!tradeEvents.loading && tradeEvents.data && tradeEvents.data.length === 0 && (
+                                <p className="events-empty">Aucun evenement</p>
+                              )}
+                              {!tradeEvents.loading && tradeEvents.data && tradeEvents.data.length > 0 && (
+                                <div className="events-timeline">
+                                  {tradeEvents.data.map((ev, idx) => (
+                                    <div key={idx} className={`event-item event-${(ev.type || '').toLowerCase()}`}>
+                                      <div className="event-dot" />
+                                      <div className="event-content">
+                                        <div className="event-header">
+                                          <span className={`event-type-pill ${(ev.type || '').toLowerCase()}`}>{ev.type}</span>
+                                          <span className="event-time">
+                                            {ev.timestamp ? new Date(ev.timestamp).toLocaleString('fr-CH', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }) : ''}
+                                          </span>
+                                        </div>
+                                        <p className="event-message">{ev.message}</p>
+                                        {ev.data && (
+                                          <div className="event-data">
+                                            {Object.entries(ev.data).map(([k, v]) => (
+                                              <span key={k} className="event-data-item">
+                                                <span className="event-data-key">{k}</span> {String(v)}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
@@ -403,103 +555,111 @@ function App() {
           </div>
         ))}
       </div>
+
+      <div className="risk-config">
+        <p className="eyebrow">Risque par trade</p>
+        <div className="risk-row">
+          <input
+            type="number"
+            min={1}
+            max={500}
+            value={riskChf.value}
+            onChange={(e) => setRiskChf((p) => ({ ...p, value: Number(e.target.value) }))}
+          />
+          <span className="risk-unit">CHF</span>
+          <button
+            className="btn-secondary"
+            onClick={() => saveRisk(riskChf.value)}
+            disabled={riskChf.saving}
+          >
+            {riskChf.saving ? '...' : 'Sauvegarder'}
+          </button>
+        </div>
+      </div>
     </section>
   )
 
   /* ─────────────── MARKET ─────────────── */
   const renderMarket = () => {
-    const chartData = parseCandleData()
     const orData = openingRange.data
+    const dayTrades = Array.isArray(trades.data)
+      ? trades.data.filter(t => t.timestamp?.startsWith(candlesDay))
+      : []
+
     return (
-      <>
-        <section className="card">
-          <div className="card-header">
-            <div>
-              <p className="eyebrow">Donnees de marche</p>
-              <h2>Opening Range & Bougies</h2>
+      <section className="card">
+        <div className="card-header">
+          <div>
+            <p className="eyebrow">Donnees de marche</p>
+            <h2>Graphique intraday</h2>
+          </div>
+        </div>
+
+        <div className="market-controls">
+          <div className="control-group">
+            <label>Instrument</label>
+            <select value={instrument} onChange={(e) => setInstrument(e.target.value)}>
+              {INSTRUMENTS.map(i => (
+                <option key={i.sym} value={i.sym}>{i.label} ({i.sym})</option>
+              ))}
+            </select>
+          </div>
+          <div className="control-group">
+            <label>Date</label>
+            <div className="input-row">
+              <input type="date" value={candlesDay} onChange={(e) => setCandlesDay(e.target.value)} />
+              <button className="btn-secondary" onClick={loadMarketData} disabled={candles.loading}>
+                {candles.loading ? '...' : 'Charger'}
+              </button>
             </div>
           </div>
+        </div>
 
-          <div className="market-controls">
-            <div className="control-group">
-              <label>Instrument</label>
-              <input value={instrument} onChange={(e) => setInstrument(e.target.value)} />
+        {orData && (
+          <div className="or-cards">
+            <div className="or-card">
+              <span className="or-label">High</span>
+              <span className="or-value">{Number(orData.high).toFixed(1)}</span>
             </div>
-            <div className="control-group">
-              <label>Opening Range</label>
-              <div className="input-row">
-                <input type="date" value={openingDay} onChange={(e) => setOpeningDay(e.target.value)} />
-                <button className="btn-secondary" onClick={loadOpening} disabled={openingRange.loading || !openingDay}>
-                  {openingRange.loading ? '...' : 'Charger'}
-                </button>
-              </div>
+            <div className="or-card">
+              <span className="or-label">Low</span>
+              <span className="or-value">{Number(orData.low).toFixed(1)}</span>
             </div>
-            <div className="control-group">
-              <label>Bougies 1min</label>
-              <div className="input-row">
-                <input type="date" value={candlesDay} onChange={(e) => setCandlesDay(e.target.value)} />
-                <button className="btn-secondary" onClick={loadCandles} disabled={candles.loading || !candlesDay}>
-                  {candles.loading ? '...' : 'Charger'}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {openingRange.error && <p className="error">{openingRange.error}</p>}
-          {orData && (
-            <div className="or-cards">
+            {orData.range_size != null && (
               <div className="or-card">
-                <span className="or-label">High</span>
-                <span className="or-value">{Number(orData.high).toFixed(1)}</span>
+                <span className="or-label">Range</span>
+                <span className="or-value">{Number(orData.range_size).toFixed(1)}</span>
               </div>
-              <div className="or-card">
-                <span className="or-label">Low</span>
-                <span className="or-value">{Number(orData.low).toFixed(1)}</span>
-              </div>
-              {orData.range_size != null && (
-                <div className="or-card">
-                  <span className="or-label">Range</span>
-                  <span className="or-value">{Number(orData.range_size).toFixed(1)}</span>
-                </div>
-              )}
-              <div className="or-card">
-                <span className="or-label">Status</span>
-                <span className={`pill ${orData.status === 'ready' ? 'on' : 'off'}`}>{orData.status || '-'}</span>
-              </div>
-            </div>
-          )}
-        </section>
-
-        <section className="card">
-          <div className="card-header">
-            <div>
-              <p className="eyebrow">Graphique</p>
-              <h2>Prix intraday</h2>
-            </div>
-          </div>
-          {candles.error && <p className="error">{candles.error}</p>}
-          <div className="chart-card">
-            {chartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={320}>
-                <LineChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="ts" hide />
-                  <YAxis dataKey="close" domain={['auto', 'auto']} tick={{ fontSize: 11 }} width={55} />
-                  <Tooltip
-                    contentStyle={{ background: '#111827', border: 'none', borderRadius: 8, color: '#e5e7eb', fontSize: 13 }}
-                    labelStyle={{ color: '#9ca3af' }}
-                  />
-                  {orData && <ReferenceLine y={orData.high} stroke="#16a34a" strokeDasharray="6 3" label={{ value: 'High', fill: '#16a34a', fontSize: 11 }} />}
-                  {orData && <ReferenceLine y={orData.low} stroke="#dc2626" strokeDasharray="6 3" label={{ value: 'Low', fill: '#dc2626', fontSize: 11 }} />}
-                  <Line type="monotone" dataKey="close" stroke="#2563eb" strokeWidth={1.5} dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="empty-state"><p>Charge des bougies pour afficher le graphique</p></div>
             )}
+            <div className="or-card">
+              <span className="or-label">Status</span>
+              <span className={`pill ${orData.status === 'ready' ? 'on' : 'off'}`}>{orData.status || '-'}</span>
+            </div>
           </div>
-        </section>
-      </>
+        )}
+
+        {dayTrades.length > 0 && (
+          <div className="day-trades-summary">
+            {dayTrades.map((t, i) => (
+              <div key={i} className="day-trade-chip">
+                <span className={`pill-dir ${t.direction === 'LONG' ? 'long' : 'short'}`}>{t.direction}</span>
+                <span>Entry {Number(t.fill_price || t.entry).toFixed(1)}</span>
+                <span className="muted">SL {Number(t.sl).toFixed(1)}</span>
+                <span className="muted">TP {Number(t.tp).toFixed(1)}</span>
+                <span className={`pill-outcome ${t.outcome}`}>{t.outcome}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {candles.error && <p className="error">{candles.error}</p>}
+        <div className="chart-card">
+          <div ref={chartContainerRef} />
+          {(!Array.isArray(candles.data) || candles.data.length === 0) && !candles.loading && (
+            <div className="empty-state"><p>Charge des bougies pour afficher le graphique</p></div>
+          )}
+        </div>
+      </section>
     )
   }
 
