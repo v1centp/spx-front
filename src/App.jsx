@@ -16,8 +16,18 @@ const tabs = [
 
 const LOG_LEVELS = ['', 'TRADING', 'OANDA', 'INFO', 'ERROR', 'NO_TRADING', 'GPT']
 const INSTRUMENTS = [
-  { sym: 'SPX', label: 'S&P 500' },
-  { sym: 'NDX', label: 'Nasdaq 100' },
+  { sym: 'SPX', label: 'S&P 500', source: 'polygon', decimals: 1 },
+  { sym: 'NDX', label: 'Nasdaq 100', source: 'polygon', decimals: 1 },
+  { sym: 'EUR_USD', label: 'EUR/USD', source: 'oanda', decimals: 5 },
+  { sym: 'GBP_USD', label: 'GBP/USD', source: 'oanda', decimals: 5 },
+  { sym: 'USD_CHF', label: 'USD/CHF', source: 'oanda', decimals: 5 },
+  { sym: 'USD_JPY', label: 'USD/JPY', source: 'oanda', decimals: 3 },
+  { sym: 'EUR_GBP', label: 'EUR/GBP', source: 'oanda', decimals: 5 },
+  { sym: 'EUR_JPY', label: 'EUR/JPY', source: 'oanda', decimals: 3 },
+  { sym: 'GBP_JPY', label: 'GBP/JPY', source: 'oanda', decimals: 3 },
+  { sym: 'AUD_USD', label: 'AUD/USD', source: 'oanda', decimals: 5 },
+  { sym: 'NZD_USD', label: 'NZD/USD', source: 'oanda', decimals: 5 },
+  { sym: 'USD_CAD', label: 'USD/CAD', source: 'oanda', decimals: 5 },
 ]
 
 function App() {
@@ -169,17 +179,27 @@ function App() {
     }
   }
 
+  const currentInstrument = INSTRUMENTS.find(i => i.sym === instrument) || INSTRUMENTS[0]
+
   const loadMarketData = () => {
     if (!candlesDay) return
     setCandles((p) => ({ ...p, loading: true, error: null }))
-    fetchJson(`/api/candles?day=${encodeURIComponent(candlesDay)}`)
-      .then(data => setCandles({ data, loading: false, error: null }))
-      .catch(err => setCandles({ data: null, loading: false, error: err.message }))
 
-    setOpeningRange((p) => ({ ...p, loading: true, error: null }))
-    fetchJson(`/api/opening_range/${candlesDay}?instrument=${instrument}`)
-      .then(data => setOpeningRange({ data, loading: false, error: null }))
-      .catch(() => setOpeningRange({ data: null, loading: false, error: null }))
+    if (currentInstrument.source === 'oanda') {
+      fetchJson(`/api/candles/oanda?instrument=${encodeURIComponent(instrument)}&day=${encodeURIComponent(candlesDay)}`)
+        .then(data => setCandles({ data, loading: false, error: null }))
+        .catch(err => setCandles({ data: null, loading: false, error: err.message }))
+      setOpeningRange({ data: null, loading: false, error: null })
+    } else {
+      fetchJson(`/api/candles?day=${encodeURIComponent(candlesDay)}`)
+        .then(data => setCandles({ data, loading: false, error: null }))
+        .catch(err => setCandles({ data: null, loading: false, error: err.message }))
+
+      setOpeningRange((p) => ({ ...p, loading: true, error: null }))
+      fetchJson(`/api/opening_range/${candlesDay}?instrument=${instrument}`)
+        .then(data => setOpeningRange({ data, loading: false, error: null }))
+        .catch(() => setOpeningRange({ data: null, loading: false, error: null }))
+    }
 
     if (!trades.data) loadTrades()
   }
@@ -233,11 +253,14 @@ function App() {
       wickUpColor: '#16a34a', wickDownColor: '#dc2626',
     })
 
+    const isOanda = currentInstrument.source === 'oanda'
     const sym = `I:${instrument}`
     const data = candles.data
-      .filter(c => !c.sym || c.sym === sym)
+      .filter(c => isOanda || !c.sym || c.sym === sym)
       .map(c => ({
-        time: Math.floor((c.s || 0) / 1000),
+        time: isOanda
+          ? Math.floor(Date.parse(c.time) / 1000)
+          : Math.floor((c.s || 0) / 1000),
         open: c.o ?? c.open,
         high: c.h ?? c.high,
         low: c.l ?? c.low,
@@ -257,8 +280,11 @@ function App() {
     }
 
     // Trade overlays
+    const dec = currentInstrument.decimals
     if (Array.isArray(trades.data)) {
-      const dayTrades = trades.data.filter(t => t.timestamp?.startsWith(candlesDay))
+      const dayTrades = trades.data
+        .filter(t => t.timestamp?.startsWith(candlesDay))
+        .filter(t => isOanda ? t.instrument === instrument : true)
       const candleTimes = data.map(d => d.time)
 
       if (dayTrades.length > 0 && candleTimes.length > 0) {
@@ -271,7 +297,7 @@ function App() {
             position: t.direction === 'LONG' ? 'belowBar' : 'aboveBar',
             color: t.direction === 'LONG' ? '#16a34a' : '#dc2626',
             shape: t.direction === 'LONG' ? 'arrowUp' : 'arrowDown',
-            text: `${t.direction} @ ${Number(t.fill_price || t.entry).toFixed(1)}`,
+            text: `${t.direction} @ ${Number(t.fill_price || t.entry).toFixed(dec)}`,
           }))
           .sort((a, b) => a.time - b.time)
 
@@ -582,8 +608,12 @@ function App() {
   /* ─────────────── MARKET ─────────────── */
   const renderMarket = () => {
     const orData = openingRange.data
+    const isOandaInstr = currentInstrument.source === 'oanda'
+    const dec = currentInstrument.decimals
     const dayTrades = Array.isArray(trades.data)
-      ? trades.data.filter(t => t.timestamp?.startsWith(candlesDay))
+      ? trades.data
+          .filter(t => t.timestamp?.startsWith(candlesDay))
+          .filter(t => isOandaInstr ? t.instrument === instrument : true)
       : []
 
     return (
@@ -615,20 +645,20 @@ function App() {
           </div>
         </div>
 
-        {orData && (
+        {!isOandaInstr && orData && (
           <div className="or-cards">
             <div className="or-card">
               <span className="or-label">High</span>
-              <span className="or-value">{Number(orData.high).toFixed(1)}</span>
+              <span className="or-value">{Number(orData.high).toFixed(dec)}</span>
             </div>
             <div className="or-card">
               <span className="or-label">Low</span>
-              <span className="or-value">{Number(orData.low).toFixed(1)}</span>
+              <span className="or-value">{Number(orData.low).toFixed(dec)}</span>
             </div>
             {orData.range_size != null && (
               <div className="or-card">
                 <span className="or-label">Range</span>
-                <span className="or-value">{Number(orData.range_size).toFixed(1)}</span>
+                <span className="or-value">{Number(orData.range_size).toFixed(dec)}</span>
               </div>
             )}
             <div className="or-card">
@@ -643,9 +673,9 @@ function App() {
             {dayTrades.map((t, i) => (
               <div key={i} className="day-trade-chip">
                 <span className={`pill-dir ${t.direction === 'LONG' ? 'long' : 'short'}`}>{t.direction}</span>
-                <span>Entry {Number(t.fill_price || t.entry).toFixed(1)}</span>
-                <span className="muted">SL {Number(t.sl).toFixed(1)}</span>
-                <span className="muted">TP {Number(t.tp).toFixed(1)}</span>
+                <span>Entry {Number(t.fill_price || t.entry).toFixed(dec)}</span>
+                <span className="muted">SL {Number(t.sl).toFixed(dec)}</span>
+                <span className="muted">TP {Number(t.tp).toFixed(dec)}</span>
                 <span className={`pill-outcome ${t.outcome}`}>{t.outcome}</span>
               </div>
             ))}
