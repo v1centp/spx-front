@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { createChart, CandlestickSeries, createTextWatermark } from 'lightweight-charts'
+import { ResponsiveContainer, LineChart, Line, Tooltip } from 'recharts'
 import { auth, provider } from './firebase'
 import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth'
 import './App.css'
@@ -13,6 +14,7 @@ const tabs = [
   { key: 'strategies', label: 'Strategies', icon: '\u{2699}\u{FE0F}' },
   { key: 'market', label: 'Marche', icon: '\u{1F4C8}' },
   { key: 'logs', label: 'Logs', icon: '\u{1F4DD}' },
+  { key: 'stats', label: 'Stats', icon: '\u{1F4CA}' },
 ]
 
 const LOG_LEVELS = ['', 'TRADING', 'OANDA', 'INFO', 'ERROR', 'NO_TRADING', 'GPT']
@@ -47,6 +49,7 @@ function App() {
   const [positions, setPositions] = useState(emptyPanel)
   const [openingRange, setOpeningRange] = useState(emptyPanel)
   const [candles, setCandles] = useState(emptyPanel)
+  const [stats, setStats] = useState(emptyPanel)
 
   const [logParams, setLogParams] = useState({ limit: 50, level: '', contains: '' })
   const [candlesDay, setCandlesDay] = useState(() => new Date().toISOString().slice(0, 10))
@@ -206,6 +209,16 @@ function App() {
     }
 
     if (!trades.data) loadTrades()
+  }
+
+  const loadStats = async () => {
+    setStats((p) => ({ ...p, loading: true, error: null }))
+    try {
+      const data = await fetchJson('/api/trades/stats')
+      setStats({ data, loading: false, error: null })
+    } catch (err) {
+      setStats({ data: null, loading: false, error: err.message })
+    }
   }
 
   useEffect(() => {
@@ -844,6 +857,120 @@ function App() {
     </section>
   )
 
+  /* ─────────────── STATS ─────────────── */
+  const renderStats = () => {
+    const d = stats.data
+    const strats = d ? Object.entries(d.strategies) : []
+
+    return (
+      <section className="card">
+        <div className="card-header">
+          <div>
+            <p className="eyebrow">Performance</p>
+            <h2>Stats par strategie</h2>
+          </div>
+          <button className="btn-secondary" onClick={loadStats} disabled={stats.loading}>
+            {stats.loading ? 'Chargement...' : 'Rafraichir'}
+          </button>
+        </div>
+
+        {stats.error && <p className="error">{stats.error}</p>}
+
+        {d && (
+          <>
+            <div className="stats-global">
+              <p className="eyebrow">PnL global realise</p>
+              <p className={`stats-global-value ${d.global_pnl >= 0 ? 'positive' : 'negative'}`}>
+                {d.global_pnl >= 0 ? '+' : ''}{d.global_pnl.toFixed(2)} CHF
+              </p>
+            </div>
+
+            <div className="stats-grid">
+              {strats.map(([name, s]) => {
+                const cumData = (s.pnl_history || []).reduce((acc, item, i) => {
+                  const prev = i > 0 ? acc[i - 1].cumul : 0
+                  acc.push({ date: item.date, cumul: Math.round((prev + item.pnl) * 100) / 100 })
+                  return acc
+                }, [])
+
+                return (
+                  <div key={name} className="stat-strategy-card">
+                    <div className="stat-strategy-header">
+                      <span className="pill-strat">{name}</span>
+                      <span className={`stat-strategy-pnl ${s.total_pnl >= 0 ? 'positive' : 'negative'}`}>
+                        {s.total_pnl >= 0 ? '+' : ''}{s.total_pnl.toFixed(2)}
+                      </span>
+                    </div>
+
+                    <div className="win-rate-section">
+                      <div className="stat-row">
+                        <span className="stat-row-label">Win rate</span>
+                        <span className="stat-row-value">{s.win_rate}%</span>
+                      </div>
+                      <div className="win-rate-bar">
+                        <div className="win-rate-fill" style={{ width: `${s.win_rate}%` }} />
+                      </div>
+                    </div>
+
+                    <div className="stat-row">
+                      <span className="stat-row-label">Trades</span>
+                      <span className="stat-row-value">{s.closed_trades} clos ({s.wins}W / {s.losses}L / {s.breakevens}BE) + {s.open_trades} open</span>
+                    </div>
+                    <div className="stat-row">
+                      <span className="stat-row-label">Avg win / loss</span>
+                      <span className="stat-row-value">
+                        <span className="positive">{s.avg_win > 0 ? '+' : ''}{s.avg_win.toFixed(2)}</span>
+                        {' / '}
+                        <span className="negative">{s.avg_loss.toFixed(2)}</span>
+                      </span>
+                    </div>
+                    <div className="stat-row">
+                      <span className="stat-row-label">Best / Worst</span>
+                      <span className="stat-row-value">
+                        <span className="positive">{s.best_trade > 0 ? '+' : ''}{s.best_trade.toFixed(2)}</span>
+                        {' / '}
+                        <span className="negative">{s.worst_trade.toFixed(2)}</span>
+                      </span>
+                    </div>
+                    <div className="stat-row">
+                      <span className="stat-row-label">Profit factor</span>
+                      <span className="stat-row-value">{s.profit_factor != null ? s.profit_factor.toFixed(2) : '-'}</span>
+                    </div>
+
+                    {cumData.length > 1 && (
+                      <div className="sparkline-container">
+                        <ResponsiveContainer width="100%" height={60}>
+                          <LineChart data={cumData}>
+                            <Line
+                              type="monotone"
+                              dataKey="cumul"
+                              stroke={cumData[cumData.length - 1].cumul >= 0 ? '#16a34a' : '#dc2626'}
+                              strokeWidth={1.5}
+                              dot={false}
+                            />
+                            <Tooltip
+                              contentStyle={{ fontSize: '0.72rem', padding: '0.25rem 0.5rem', borderRadius: '6px' }}
+                              formatter={(v) => [`${v.toFixed(2)} CHF`, 'PnL']}
+                              labelFormatter={(l) => l || ''}
+                            />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </>
+        )}
+
+        {!stats.loading && !d && !stats.error && (
+          <div className="empty-state"><p>Cliquer sur Rafraichir pour charger les stats</p></div>
+        )}
+      </section>
+    )
+  }
+
   const renderTabContent = () => (
     <Routes>
       <Route path="/account" element={renderAccount()} />
@@ -851,6 +978,7 @@ function App() {
       <Route path="/strategies" element={renderStrategies()} />
       <Route path="/market" element={renderMarket()} />
       <Route path="/logs" element={renderLogs()} />
+      <Route path="/stats" element={renderStats()} />
       <Route path="*" element={<Navigate to="/account" replace />} />
     </Routes>
   )
