@@ -241,10 +241,43 @@ function App() {
       {trades.error && <p className="error">Erreur trades : {trades.error}</p>}
       {trades.loading && <p className="muted">Chargement trades…</p>}
       {Array.isArray(trades.data) && trades.data.length > 0 && (
-        <div className="scroll">
-          {trades.data.map((trade) => (
-            <pre key={trade.id} className="code">{JSON.stringify(trade, null, 2)}</pre>
-          ))}
+        <div className="table-wrap">
+          <table className="trade-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Strategie</th>
+                <th>Direction</th>
+                <th>Entry</th>
+                <th>SL</th>
+                <th>TP</th>
+                <th>Units</th>
+                <th>Fill Price</th>
+                <th>Outcome</th>
+                <th>PnL</th>
+                <th>OANDA ID</th>
+              </tr>
+            </thead>
+            <tbody>
+              {trades.data.map((t) => (
+                <tr key={t.id}>
+                  <td className="cell-date">{t.timestamp ? new Date(t.timestamp).toLocaleString('fr-CH', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'}</td>
+                  <td><span className="pill-strat">{t.strategy}</span></td>
+                  <td><span className={`pill-dir ${t.direction === 'LONG' ? 'long' : 'short'}`}>{t.direction}</span></td>
+                  <td>{t.entry != null ? Number(t.entry).toFixed(1) : '-'}</td>
+                  <td>{t.sl != null ? Number(t.sl).toFixed(1) : '-'}</td>
+                  <td>{t.tp != null ? Number(t.tp).toFixed(1) : '-'}</td>
+                  <td>{t.units != null ? Number(t.units).toFixed(1) : '-'}</td>
+                  <td>{t.fill_price != null ? Number(t.fill_price).toFixed(1) : '-'}</td>
+                  <td><span className={`pill-outcome ${t.outcome}`}>{t.outcome || 'unknown'}</span></td>
+                  <td className={`cell-pnl ${t.realized_pnl > 0 ? 'positive' : t.realized_pnl < 0 ? 'negative' : ''}`}>
+                    {t.realized_pnl != null ? `${t.realized_pnl > 0 ? '+' : ''}${Number(t.realized_pnl).toFixed(2)}` : '-'}
+                  </td>
+                  <td className="cell-id">{t.oanda_trade_id || '-'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </section>

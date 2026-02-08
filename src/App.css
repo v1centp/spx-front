@@ -215,6 +215,139 @@ button:not(:disabled):active {
   font-weight: 600;
 }
 
+/* Trade table */
+.table-wrap {
+  overflow-x: auto;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.trade-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.trade-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.trade-table th {
+  background: #111827;
+  color: #e5e7eb;
+  padding: 0.6rem 0.75rem;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.trade-table td {
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid #f0f0f0;
+  color: #1e293b;
+}
+
+.trade-table tbody tr:hover {
+  background: #f1f5f9;
+}
+
+.trade-table tbody tr:nth-child(even) {
+  background: #fafafa;
+}
+
+.trade-table tbody tr:nth-child(even):hover {
+  background: #f1f5f9;
+}
+
+.cell-date {
+  color: #6b7280;
+  font-size: 0.8rem;
+}
+
+.cell-id {
+  font-family: monospace;
+  font-size: 0.78rem;
+  color: #6b7280;
+}
+
+.pill-strat {
+  background: #e0e7ff;
+  color: #3730a3;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.pill-dir {
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.pill-dir.long {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.pill-dir.short {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.pill-outcome {
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.pill-outcome.open {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.pill-outcome.win {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.pill-outcome.loss {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.pill-outcome.breakeven {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.pill-outcome.unknown {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.cell-pnl {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.cell-pnl.positive {
+  color: #16a34a;
+}
+
+.cell-pnl.negative {
+  color: #dc2626;
+}
+
 @media (max-width: 720px) {
   .header {
     flex-direction: column;
