@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { createChart, CandlestickSeries, createTextWatermark } from 'lightweight-charts'
 import { auth, provider } from './firebase'
 import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth'
@@ -31,8 +32,11 @@ const INSTRUMENTS = [
 ]
 
 function App() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const activeTab = location.pathname.replace('/', '') || 'account'
+
   const [apiBase, setApiBase] = useState(defaultApiBase)
-  const [activeTab, setActiveTab] = useState('account')
   const [user, setUser] = useState(null)
   const [authError, setAuthError] = useState('')
 
@@ -840,16 +844,16 @@ function App() {
     </section>
   )
 
-  const renderTabContent = () => {
-    switch (activeTab) {
-      case 'account': return renderAccount()
-      case 'positions': return renderPositions()
-      case 'strategies': return renderStrategies()
-      case 'market': return renderMarket()
-      case 'logs': return renderLogs()
-      default: return null
-    }
-  }
+  const renderTabContent = () => (
+    <Routes>
+      <Route path="/account" element={renderAccount()} />
+      <Route path="/positions" element={renderPositions()} />
+      <Route path="/strategies" element={renderStrategies()} />
+      <Route path="/market" element={renderMarket()} />
+      <Route path="/logs" element={renderLogs()} />
+      <Route path="*" element={<Navigate to="/account" replace />} />
+    </Routes>
+  )
 
   return (
     <div className="page">
@@ -886,7 +890,7 @@ function App() {
               <button
                 key={tab.key}
                 className={tab.key === activeTab ? 'tab active' : 'tab'}
-                onClick={() => setActiveTab(tab.key)}
+                onClick={() => navigate(`/${tab.key}`)}
               >
                 <span className="tab-icon">{tab.icon}</span>
                 <span className="tab-label">{tab.label}</span>
