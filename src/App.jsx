@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { createChart, CandlestickSeries } from 'lightweight-charts'
+import { createChart, CandlestickSeries, createTextWatermark } from 'lightweight-charts'
 import { auth, provider } from './firebase'
 import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth'
 import './App.css'
@@ -237,20 +237,45 @@ function App() {
 
     container.innerHTML = ''
 
+    const dec = currentInstrument.decimals
+    const minMove = dec === 5 ? 0.00001 : dec === 3 ? 0.001 : dec === 2 ? 0.01 : 0.1
+
+    // 1. Create chart (dark theme)
     const chart = createChart(container, {
       width: container.clientWidth,
       height: 420,
-      layout: { background: { type: 'solid', color: '#ffffff' }, textColor: '#374151', fontSize: 12 },
-      grid: { vertLines: { color: '#f3f4f6' }, horzLines: { color: '#f3f4f6' } },
-      timeScale: { timeVisible: true, secondsVisible: false, borderColor: '#e5e7eb' },
-      rightPriceScale: { borderColor: '#e5e7eb' },
-      crosshair: { mode: 0 },
+      layout: { background: { type: 'solid', color: '#131722' }, textColor: '#d1d4dc', fontSize: 12 },
+      grid: { vertLines: { color: '#1e222d' }, horzLines: { color: '#1e222d' } },
+      timeScale: { timeVisible: true, secondsVisible: false, borderColor: '#2a2e39', rightOffset: 5, minBarSpacing: 2 },
+      rightPriceScale: { borderColor: '#2a2e39' },
+      crosshair: {
+        mode: 0,
+        vertLine: { width: 1, color: '#758696', style: 3, labelBackgroundColor: '#2a2e39' },
+        horzLine: { width: 1, color: '#758696', style: 3, labelBackgroundColor: '#2a2e39' },
+      },
     })
 
+    // 2. Create legend overlay
+    const legend = document.createElement('div')
+    legend.className = 'chart-legend'
+    legend.innerHTML = `
+      <div class="chart-legend-title">${currentInstrument.label}  M5</div>
+      <div class="chart-legend-ohlc">
+        <span>O <span class="val">-</span></span>
+        <span>H <span class="val">-</span></span>
+        <span>L <span class="val">-</span></span>
+        <span>C <span class="val">-</span></span>
+        <span class="chart-legend-change"></span>
+      </div>
+    `
+    container.appendChild(legend)
+
+    // 3. Add candlestick series with priceFormat
     const series = chart.addSeries(CandlestickSeries, {
-      upColor: '#16a34a', downColor: '#dc2626',
-      borderUpColor: '#16a34a', borderDownColor: '#dc2626',
-      wickUpColor: '#16a34a', wickDownColor: '#dc2626',
+      upColor: '#26a69a', downColor: '#ef5350',
+      borderUpColor: '#26a69a', borderDownColor: '#ef5350',
+      wickUpColor: '#26a69a', wickDownColor: '#ef5350',
+      priceFormat: { type: 'price', precision: dec, minMove },
     })
 
     const isOanda = currentInstrument.source === 'oanda'
@@ -269,18 +294,29 @@ function App() {
       .filter(d => d.open != null && d.time > 0)
       .sort((a, b) => a.time - b.time)
 
-    if (data.length === 0) { chart.remove(); return }
+    if (data.length === 0) { chart.remove(); legend.remove(); return }
+
+    // 4. Set data
     series.setData(data)
 
-    // Opening range lines
+    // 5. Watermark
+    try {
+      const pane = chart.panes()[0]
+      createTextWatermark(pane, {
+        horzAlign: 'center',
+        vertAlign: 'center',
+        lines: [{ text: currentInstrument.label, color: 'rgba(255,255,255,0.06)', fontSize: 48, fontStyle: 'bold' }],
+      })
+    } catch { /* watermark is optional */ }
+
+    // 6. Opening range lines
     const orData = openingRange.data
     if (orData) {
-      series.createPriceLine({ price: Number(orData.high), color: '#16a34a', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: 'OR High' })
-      series.createPriceLine({ price: Number(orData.low), color: '#dc2626', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: 'OR Low' })
+      series.createPriceLine({ price: Number(orData.high), color: '#26a69a', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: 'OR High' })
+      series.createPriceLine({ price: Number(orData.low), color: '#ef5350', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: 'OR Low' })
     }
 
     // Trade overlays
-    const dec = currentInstrument.decimals
     if (Array.isArray(trades.data)) {
       const dayTrades = trades.data
         .filter(t => t.timestamp?.startsWith(candlesDay))
@@ -295,7 +331,7 @@ function App() {
           .map(t => ({
             time: snapToCandle(Math.floor(new Date(t.timestamp).getTime() / 1000)),
             position: t.direction === 'LONG' ? 'belowBar' : 'aboveBar',
-            color: t.direction === 'LONG' ? '#16a34a' : '#dc2626',
+            color: t.direction === 'LONG' ? '#26a69a' : '#ef5350',
             shape: t.direction === 'LONG' ? 'arrowUp' : 'arrowDown',
             text: `${t.direction} @ ${Number(t.fill_price || t.entry).toFixed(dec)}`,
           }))
@@ -305,15 +341,54 @@ function App() {
 
         dayTrades.forEach(t => {
           if (t.fill_price != null)
-            series.createPriceLine({ price: Number(t.fill_price), color: '#2563eb', lineWidth: 1, lineStyle: 0, axisLabelVisible: true, title: 'Entry' })
+            series.createPriceLine({ price: Number(t.fill_price), color: '#2962ff', lineWidth: 1, lineStyle: 0, axisLabelVisible: true, title: 'Entry' })
           if (t.sl != null)
-            series.createPriceLine({ price: Number(t.sl), color: '#dc2626', lineWidth: 1, lineStyle: 1, axisLabelVisible: true, title: 'SL' })
+            series.createPriceLine({ price: Number(t.sl), color: '#ef5350', lineWidth: 1, lineStyle: 1, axisLabelVisible: true, title: 'SL' })
           if (t.tp != null)
-            series.createPriceLine({ price: Number(t.tp), color: '#16a34a', lineWidth: 1, lineStyle: 1, axisLabelVisible: true, title: 'TP' })
+            series.createPriceLine({ price: Number(t.tp), color: '#26a69a', lineWidth: 1, lineStyle: 1, axisLabelVisible: true, title: 'TP' })
         })
       }
     }
 
+    // 7. Crosshair legend update
+    const updateLegend = (param) => {
+      let bar
+      if (param && param.seriesData) {
+        bar = param.seriesData.get(series)
+      }
+      if (!bar) bar = data[data.length - 1]
+      if (!bar) return
+
+      const isUp = bar.close >= bar.open
+      const cls = isUp ? 'up' : 'down'
+      const spans = legend.querySelectorAll('.chart-legend-ohlc .val')
+      if (spans.length >= 4) {
+        spans[0].textContent = bar.open.toFixed(dec)
+        spans[0].className = `val ${cls}`
+        spans[1].textContent = bar.high.toFixed(dec)
+        spans[1].className = `val ${cls}`
+        spans[2].textContent = bar.low.toFixed(dec)
+        spans[2].className = `val ${cls}`
+        spans[3].textContent = bar.close.toFixed(dec)
+        spans[3].className = `val ${cls}`
+      }
+      const changeEl = legend.querySelector('.chart-legend-change')
+      if (changeEl && data.length > 1) {
+        const idx = param?.seriesData?.get(series) ? data.findIndex(d => d.time === bar.time) : data.length - 1
+        const prevClose = idx > 0 ? data[idx - 1].close : bar.open
+        const pct = ((bar.close - prevClose) / prevClose * 100).toFixed(2)
+        const sign = pct >= 0 ? '+' : ''
+        changeEl.textContent = `${sign}${pct}%`
+        changeEl.className = `chart-legend-change ${pct >= 0 ? 'up' : 'down'}`
+      }
+    }
+
+    chart.subscribeCrosshairMove(updateLegend)
+
+    // 8. Initialize legend with last candle
+    updateLegend(null)
+
+    // 9. Fit content
     chart.timeScale().fitContent()
 
     const ro = new ResizeObserver(entries => {
@@ -321,7 +396,8 @@ function App() {
     })
     ro.observe(container)
 
-    return () => { ro.disconnect(); chart.remove() }
+    // 10. Cleanup
+    return () => { ro.disconnect(); chart.remove(); legend.remove() }
   }, [activeTab, candles.data, openingRange.data, trades.data, candlesDay, instrument])
 
   /* ─────────────── ACCOUNT ─────────────── */
