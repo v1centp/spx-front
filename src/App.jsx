@@ -215,73 +215,170 @@ function App() {
     </section>
   )
 
-  const renderPositions = () => (
-    <section className="card">
-      <div className="card-header">
-        <div>
-          <p className="eyebrow">Positions</p>
-          <h2>Mes positions & historique</h2>
-        </div>
-        <div className="actions">
-          <button onClick={loadPositions} disabled={positions.loading}>Rafraîchir positions</button>
-          <button onClick={loadTrades} disabled={trades.loading}>Charger trades</button>
-        </div>
-      </div>
-      {positions.error && <p className="error">Erreur positions : {positions.error}</p>}
-      {positions.loading && <p className="muted">Chargement positions…</p>}
-      {Array.isArray(positions.data) && positions.data.length > 0 && (
-        <div className="scroll">
-          {positions.data.map((pos, idx) => (
-            <pre key={idx} className="code">{JSON.stringify(pos, null, 2)}</pre>
-          ))}
-        </div>
-      )}
+  const renderPositions = () => {
+    const posData = positions.data || {}
+    const openTrades = posData.trades || []
+    const openPositions = posData.positions || []
 
-      <h3>Historique trades</h3>
-      {trades.error && <p className="error">Erreur trades : {trades.error}</p>}
-      {trades.loading && <p className="muted">Chargement trades…</p>}
-      {Array.isArray(trades.data) && trades.data.length > 0 && (
-        <div className="table-wrap">
-          <table className="trade-table">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Strategie</th>
-                <th>Direction</th>
-                <th>Entry</th>
-                <th>SL</th>
-                <th>TP</th>
-                <th>Units</th>
-                <th>Fill Price</th>
-                <th>Outcome</th>
-                <th>PnL</th>
-                <th>OANDA ID</th>
-              </tr>
-            </thead>
-            <tbody>
-              {trades.data.map((t) => (
-                <tr key={t.id}>
-                  <td className="cell-date">{t.timestamp ? new Date(t.timestamp).toLocaleString('fr-CH', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'}</td>
-                  <td><span className="pill-strat">{t.strategy}</span></td>
-                  <td><span className={`pill-dir ${t.direction === 'LONG' ? 'long' : 'short'}`}>{t.direction}</span></td>
-                  <td>{t.entry != null ? Number(t.entry).toFixed(1) : '-'}</td>
-                  <td>{t.sl != null ? Number(t.sl).toFixed(1) : '-'}</td>
-                  <td>{t.tp != null ? Number(t.tp).toFixed(1) : '-'}</td>
-                  <td>{t.units != null ? Number(t.units).toFixed(1) : '-'}</td>
-                  <td>{t.fill_price != null ? Number(t.fill_price).toFixed(1) : '-'}</td>
-                  <td><span className={`pill-outcome ${t.outcome}`}>{t.outcome || 'unknown'}</span></td>
-                  <td className={`cell-pnl ${t.realized_pnl > 0 ? 'positive' : t.realized_pnl < 0 ? 'negative' : ''}`}>
-                    {t.realized_pnl != null ? `${t.realized_pnl > 0 ? '+' : ''}${Number(t.realized_pnl).toFixed(2)}` : '-'}
-                  </td>
-                  <td className="cell-id">{t.oanda_trade_id || '-'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+    return (
+      <section className="card">
+        <div className="card-header">
+          <div>
+            <p className="eyebrow">Positions</p>
+            <h2>Mes positions & historique</h2>
+          </div>
+          <div className="actions">
+            <button onClick={loadPositions} disabled={positions.loading}>Rafraichir positions</button>
+            <button onClick={loadTrades} disabled={trades.loading}>Charger trades</button>
+          </div>
         </div>
-      )}
-    </section>
-  )
+
+        {positions.error && <p className="error">Erreur positions : {positions.error}</p>}
+        {positions.loading && <p className="muted">Chargement positions…</p>}
+
+        {/* Open trades OANDA */}
+        {openTrades.length > 0 && (
+          <>
+            <h3>Trades ouverts ({openTrades.length})</h3>
+            <div className="pos-grid">
+              {openTrades.map((t) => {
+                const uPnL = parseFloat(t.unrealizedPL || 0)
+                const units = parseFloat(t.currentUnits || t.initialUnits || 0)
+                const dir = units >= 0 ? 'LONG' : 'SHORT'
+                return (
+                  <div key={t.id} className="pos-card">
+                    <div className="pos-card-header">
+                      <span className="pos-instrument">{t.instrument}</span>
+                      <span className={`pill-dir ${dir === 'LONG' ? 'long' : 'short'}`}>{dir}</span>
+                    </div>
+                    <div className="pos-card-body">
+                      <div className="pos-row">
+                        <span className="pos-label">ID</span>
+                        <span className="pos-value mono">{t.id}</span>
+                      </div>
+                      <div className="pos-row">
+                        <span className="pos-label">Prix</span>
+                        <span className="pos-value">{parseFloat(t.price).toFixed(1)}</span>
+                      </div>
+                      <div className="pos-row">
+                        <span className="pos-label">Units</span>
+                        <span className="pos-value">{Math.abs(units).toFixed(1)}</span>
+                      </div>
+                      <div className="pos-row">
+                        <span className="pos-label">PnL latent</span>
+                        <span className={`pos-value bold ${uPnL > 0 ? 'positive' : uPnL < 0 ? 'negative' : ''}`}>
+                          {uPnL > 0 ? '+' : ''}{uPnL.toFixed(2)} CHF
+                        </span>
+                      </div>
+                      {t.stopLossOrder && (
+                        <div className="pos-row">
+                          <span className="pos-label">SL</span>
+                          <span className="pos-value">{parseFloat(t.stopLossOrder.price).toFixed(1)}</span>
+                        </div>
+                      )}
+                      {t.takeProfitOrder && (
+                        <div className="pos-row">
+                          <span className="pos-label">TP</span>
+                          <span className="pos-value">{parseFloat(t.takeProfitOrder.price).toFixed(1)}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </>
+        )}
+
+        {!positions.loading && openTrades.length === 0 && !positions.error && (
+          <p className="muted">Aucune position ouverte.</p>
+        )}
+
+        {/* Positions agrégées */}
+        {openPositions.length > 0 && (
+          <>
+            <h3>Positions agrégées</h3>
+            <div className="pos-grid">
+              {openPositions.map((p) => {
+                const longUnits = parseFloat(p.long?.units || 0)
+                const shortUnits = parseFloat(p.short?.units || 0)
+                const totalPnL = parseFloat(p.unrealizedPL || 0)
+                return (
+                  <div key={p.instrument} className="pos-card">
+                    <div className="pos-card-header">
+                      <span className="pos-instrument">{p.instrument}</span>
+                      <span className={`pos-pnl-badge ${totalPnL >= 0 ? 'up' : 'down'}`}>
+                        {totalPnL >= 0 ? '+' : ''}{totalPnL.toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="pos-card-body">
+                      {longUnits !== 0 && (
+                        <div className="pos-row">
+                          <span className="pos-label">Long</span>
+                          <span className="pos-value">{longUnits.toFixed(1)} @ {parseFloat(p.long.averagePrice).toFixed(1)}</span>
+                        </div>
+                      )}
+                      {shortUnits !== 0 && (
+                        <div className="pos-row">
+                          <span className="pos-label">Short</span>
+                          <span className="pos-value">{Math.abs(shortUnits).toFixed(1)} @ {parseFloat(p.short.averagePrice).toFixed(1)}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </>
+        )}
+
+        {/* Trade history table */}
+        <h3>Historique trades</h3>
+        {trades.error && <p className="error">Erreur trades : {trades.error}</p>}
+        {trades.loading && <p className="muted">Chargement trades…</p>}
+        {Array.isArray(trades.data) && trades.data.length > 0 && (
+          <div className="table-wrap">
+            <table className="trade-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Strategie</th>
+                  <th>Direction</th>
+                  <th>Entry</th>
+                  <th>SL</th>
+                  <th>TP</th>
+                  <th>Units</th>
+                  <th>Fill Price</th>
+                  <th>Outcome</th>
+                  <th>PnL</th>
+                  <th>OANDA ID</th>
+                </tr>
+              </thead>
+              <tbody>
+                {trades.data.map((t) => (
+                  <tr key={t.id}>
+                    <td className="cell-date">{t.timestamp ? new Date(t.timestamp).toLocaleString('fr-CH', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'}</td>
+                    <td><span className="pill-strat">{t.strategy}</span></td>
+                    <td><span className={`pill-dir ${t.direction === 'LONG' ? 'long' : 'short'}`}>{t.direction}</span></td>
+                    <td>{t.entry != null ? Number(t.entry).toFixed(1) : '-'}</td>
+                    <td>{t.sl != null ? Number(t.sl).toFixed(1) : '-'}</td>
+                    <td>{t.tp != null ? Number(t.tp).toFixed(1) : '-'}</td>
+                    <td>{t.units != null ? Number(t.units).toFixed(1) : '-'}</td>
+                    <td>{t.fill_price != null ? Number(t.fill_price).toFixed(1) : '-'}</td>
+                    <td><span className={`pill-outcome ${t.outcome}`}>{t.outcome || 'unknown'}</span></td>
+                    <td className={`cell-pnl ${t.realized_pnl > 0 ? 'positive' : t.realized_pnl < 0 ? 'negative' : ''}`}>
+                      {t.realized_pnl != null ? `${t.realized_pnl > 0 ? '+' : ''}${Number(t.realized_pnl).toFixed(2)}` : '-'}
+                    </td>
+                    <td className="cell-id">{t.oanda_trade_id || '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    )
+  }
 
   const renderStrategies = () => (
     <section className="card">

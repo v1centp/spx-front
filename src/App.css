@@ -215,6 +215,96 @@ button:not(:disabled):active {
   font-weight: 600;
 }
 
+/* Position cards */
+.pos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.75rem;
+}
+
+.pos-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.pos-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.6rem 0.85rem;
+  background: #111827;
+  color: #fff;
+}
+
+.pos-instrument {
+  font-weight: 700;
+  font-size: 0.9rem;
+  letter-spacing: 0.02em;
+}
+
+.pos-pnl-badge {
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+}
+
+.pos-pnl-badge.up {
+  background: rgba(22, 163, 74, 0.2);
+  color: #4ade80;
+}
+
+.pos-pnl-badge.down {
+  background: rgba(220, 38, 38, 0.2);
+  color: #f87171;
+}
+
+.pos-card-body {
+  padding: 0.5rem 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.pos-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.2rem 0;
+}
+
+.pos-label {
+  font-size: 0.78rem;
+  color: #6b7280;
+}
+
+.pos-value {
+  font-size: 0.85rem;
+  color: #1e293b;
+}
+
+.pos-value.mono {
+  font-family: monospace;
+  font-size: 0.78rem;
+  color: #6b7280;
+}
+
+.pos-value.bold {
+  font-weight: 700;
+}
+
+.pos-value.positive,
+.positive {
+  color: #16a34a;
+}
+
+.pos-value.negative,
+.negative {
+  color: #dc2626;
+}
+
 /* Trade table */
 .table-wrap {
   overflow-x: auto;
