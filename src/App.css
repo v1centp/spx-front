@@ -963,6 +963,10 @@ label {
   gap: 0.5rem;
   margin-bottom: 0.2rem;
 }
+.log-tag {
+  font-size: 0.6rem;
+  padding: 0.1rem 0.35rem;
+}
 
 .log-level {
   font-size: 0.65rem;

@@ -51,7 +51,8 @@ function App() {
   const [candles, setCandles] = useState(emptyPanel)
   const [stats, setStats] = useState(emptyPanel)
 
-  const [logParams, setLogParams] = useState({ limit: 50, level: '', contains: '' })
+  const [logParams, setLogParams] = useState({ limit: 50, level: '', contains: '', tag: '', trade_id: '' })
+  const [logTags, setLogTags] = useState([])
   const [candlesDay, setCandlesDay] = useState(() => new Date().toISOString().slice(0, 10))
   const [instrument, setInstrument] = useState('SPX')
   const [expandedTradeId, setExpandedTradeId] = useState(null)
@@ -136,6 +137,15 @@ function App() {
     }
   }
 
+  const loadLogTags = async () => {
+    try {
+      const data = await fetchJson('/api/logs/tags')
+      setLogTags(data)
+    } catch {
+      // keep empty
+    }
+  }
+
   const loadLogs = async () => {
     setLogs((p) => ({ ...p, loading: true, error: null }))
     try {
@@ -143,6 +153,8 @@ function App() {
       if (logParams.limit) params.append('limit', logParams.limit)
       if (logParams.level) params.append('level', logParams.level)
       if (logParams.contains) params.append('contains', logParams.contains)
+      if (logParams.tag) params.append('tag', logParams.tag)
+      if (logParams.trade_id) params.append('trade_id', logParams.trade_id)
       const data = await fetchJson(`/api/logs?${params.toString()}`)
       setLogs({ data, loading: false, error: null })
     } catch (err) {
@@ -160,7 +172,7 @@ function App() {
     }
   }
 
-  const toggleTradeEvents = async (oandaTradeId) => {
+  const toggleTradeEvents = async (oandaTradeId, docPath) => {
     if (expandedTradeId === oandaTradeId) {
       setExpandedTradeId(null)
       setTradeEvents({ data: null, loading: false })
@@ -169,7 +181,8 @@ function App() {
     setExpandedTradeId(oandaTradeId)
     setTradeEvents({ data: null, loading: true })
     try {
-      const data = await fetchJson(`/api/trades/${oandaTradeId}/events`)
+      const pathParam = docPath ? `?path=${encodeURIComponent(docPath)}` : ''
+      const data = await fetchJson(`/api/trades/${oandaTradeId}/events${pathParam}`)
       setTradeEvents({ data, loading: false })
     } catch {
       setTradeEvents({ data: [], loading: false })
@@ -225,6 +238,7 @@ function App() {
     loadStrategies()
     loadBalance()
     loadRisk()
+    loadLogTags()
   }, [])
 
   const strategyEntries = strategies.data ? Object.entries(strategies.data) : []
@@ -571,7 +585,7 @@ function App() {
                         <td colSpan={11} style={{ padding: 0, border: 'none' }}>
                           <div
                             className={`trade-row-clickable ${isExpanded ? 'expanded' : ''}`}
-                            onClick={() => t.oanda_trade_id && toggleTradeEvents(t.oanda_trade_id)}
+                            onClick={() => t.oanda_trade_id && toggleTradeEvents(t.oanda_trade_id, t.doc_path)}
                           >
                             <span className="cell-date">{t.timestamp ? new Date(t.timestamp).toLocaleString('fr-CH', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'}</span>
                             <span><span className="pill-strat">{t.strategy}</span></span>
@@ -787,75 +801,108 @@ function App() {
   }
 
   /* ─────────────── LOGS ─────────────── */
-  const renderLogs = () => (
-    <section className="card">
-      <div className="card-header">
-        <div>
-          <p className="eyebrow">Systeme</p>
-          <h2>Logs</h2>
+  const renderLogs = () => {
+    return (
+      <section className="card">
+        <div className="card-header">
+          <div>
+            <p className="eyebrow">Systeme</p>
+            <h2>Logs</h2>
+          </div>
+          <button className="btn-secondary" onClick={loadLogs} disabled={logs.loading}>
+            {logs.loading ? 'Chargement...' : 'Charger'}
+          </button>
         </div>
-        <button className="btn-secondary" onClick={loadLogs} disabled={logs.loading}>
-          {logs.loading ? 'Chargement...' : 'Charger'}
-        </button>
-      </div>
 
-      <div className="log-filters">
-        <div className="control-group">
-          <label>Limite</label>
-          <input
-            type="number"
-            value={logParams.limit}
-            min={1}
-            max={500}
-            onChange={(e) => setLogParams((p) => ({ ...p, limit: Number(e.target.value) }))}
-          />
-        </div>
-        <div className="control-group">
-          <label>Niveau</label>
-          <div className="level-chips">
-            {LOG_LEVELS.map((lvl) => (
-              <button
-                key={lvl}
-                className={`chip ${logParams.level === lvl ? 'active' : ''}`}
-                onClick={() => setLogParams((p) => ({ ...p, level: lvl }))}
-              >
-                {lvl || 'Tous'}
-              </button>
-            ))}
+        <div className="log-filters">
+          <div className="control-group">
+            <label>Limite</label>
+            <input
+              type="number"
+              value={logParams.limit}
+              min={1}
+              max={500}
+              onChange={(e) => setLogParams((p) => ({ ...p, limit: Number(e.target.value) }))}
+            />
+          </div>
+          <div className="control-group">
+            <label>Niveau</label>
+            <div className="level-chips">
+              {LOG_LEVELS.map((lvl) => (
+                <button
+                  key={lvl}
+                  className={`chip ${logParams.level === lvl ? 'active' : ''}`}
+                  onClick={() => setLogParams((p) => ({ ...p, level: lvl }))}
+                >
+                  {lvl || 'Tous'}
+                </button>
+              ))}
+            </div>
+          </div>
+          {logTags.length > 0 && (
+            <div className="control-group">
+              <label>Strategie / Service</label>
+              <div className="level-chips">
+                <button
+                  className={`chip ${logParams.tag === '' ? 'active' : ''}`}
+                  onClick={() => setLogParams((p) => ({ ...p, tag: '' }))}
+                >
+                  Tous
+                </button>
+                {logTags.map((t) => (
+                  <button
+                    key={t}
+                    className={`chip ${logParams.tag === t ? 'active' : ''}`}
+                    onClick={() => setLogParams((p) => ({ ...p, tag: t }))}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          <div className="control-group">
+            <label>Trade ID (OANDA)</label>
+            <input
+              value={logParams.trade_id}
+              placeholder="Ex: 12345"
+              onChange={(e) => setLogParams((p) => ({ ...p, trade_id: e.target.value }))}
+            />
+          </div>
+          <div className="control-group">
+            <label>Recherche</label>
+            <input
+              value={logParams.contains}
+              placeholder="Mot-cle..."
+              onChange={(e) => setLogParams((p) => ({ ...p, contains: e.target.value }))}
+            />
           </div>
         </div>
-        <div className="control-group">
-          <label>Recherche</label>
-          <input
-            value={logParams.contains}
-            placeholder="Mot-cle..."
-            onChange={(e) => setLogParams((p) => ({ ...p, contains: e.target.value }))}
-          />
-        </div>
-      </div>
 
-      {logs.error && <p className="error">{logs.error}</p>}
-      {Array.isArray(logs.data) && logs.data.length > 0 && (
-        <div className="log-list">
-          {logs.data.map((log, idx) => {
-            const lvl = (log.level || '').toUpperCase()
-            return (
-              <div key={idx} className={`log-entry level-${lvl.toLowerCase()}`}>
-                <div className="log-meta">
-                  <span className={`log-level ${lvl.toLowerCase()}`}>{lvl || 'LOG'}</span>
-                  <span className="log-time">{log.timestamp ? new Date(log.timestamp).toLocaleString('fr-CH', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }) : ''}</span>
+        {logs.error && <p className="error">{logs.error}</p>}
+        {Array.isArray(logs.data) && logs.data.length > 0 && (
+          <div className="log-list">
+            {logs.data.map((log, idx) => {
+              const lvl = (log.level || '').toUpperCase()
+              return (
+                <div key={idx} className={`log-entry level-${lvl.toLowerCase()}`}>
+                  <div className="log-meta">
+                    <span className={`log-level ${lvl.toLowerCase()}`}>{lvl || 'LOG'}</span>
+                    {log.tag && <span className="pill-strat log-tag">{log.tag}</span>}
+                    <span className="log-time">{log.timestamp ? new Date(log.timestamp).toLocaleString('fr-CH', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }) : ''}</span>
+                  </div>
+                  <p className="log-msg">{log.message || JSON.stringify(log)}</p>
                 </div>
-                <p className="log-msg">{log.message || JSON.stringify(log)}</p>
-              </div>
-            )
-          })}
-        </div>
-      )}
-      {Array.isArray(logs.data) && logs.data.length === 0 && (
-        <div className="empty-state"><p>Aucun log trouve</p></div>
-      )}
-    </section>
-  )
+              )
+            })}
+          </div>
+        )}
+        {Array.isArray(logs.data) && logs.data.length === 0 && (
+          <div className="empty-state"><p>Aucun log trouve</p></div>
+        )}
+      </section>
+    )
+  }
 
   /* ─────────────── STATS ─────────────── */
   const renderStats = () => {
