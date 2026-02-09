@@ -573,95 +573,89 @@ function App() {
           {trades.error && <p className="error">{trades.error}</p>}
           {Array.isArray(trades.data) && trades.data.length > 0 && (
             <div className="table-wrap">
-              <table className="trade-table">
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Strategie</th>
-                    <th>Direction</th>
-                    <th>Entry</th>
-                    <th>SL</th>
-                    <th>TP</th>
-                    <th>Units</th>
-                    <th>Fill</th>
-                    <th>Outcome</th>
-                    <th>PnL</th>
-                    <th>ID</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {trades.data.map((t) => {
-                    const isExpanded = expandedTradeId === t.oanda_trade_id
-                    return (
-                      <tr key={t.id} className="trade-row-group">
-                        <td colSpan={11} style={{ padding: 0, border: 'none' }}>
-                          <div
-                            className={`trade-row-clickable ${isExpanded ? 'expanded' : ''}`}
-                            onClick={() => t.oanda_trade_id && toggleTradeEvents(t.oanda_trade_id, t.doc_path)}
-                          >
-                            <span className="cell-date">{t.timestamp ? new Date(t.timestamp).toLocaleString('fr-CH', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'}</span>
-                            <span><span className="pill-strat">{t.strategy}</span></span>
-                            <span><span className={`pill-dir ${t.direction === 'LONG' ? 'long' : 'short'}`}>{t.direction}</span></span>
-                            <span>{t.entry != null ? Number(t.entry).toFixed(1) : '-'}</span>
-                            <span>{t.sl != null ? Number(t.sl).toFixed(1) : '-'}</span>
-                            <span>{t.tp != null ? Number(t.tp).toFixed(1) : '-'}</span>
-                            <span>{t.units != null ? Number(t.units).toFixed(1) : '-'}</span>
-                            <span>{t.fill_price != null ? Number(t.fill_price).toFixed(1) : '-'}</span>
-                            <span><span className={`pill-outcome ${t.outcome}`}>{t.outcome || 'unknown'}</span></span>
-                            <span className={`cell-pnl ${t.realized_pnl > 0 ? 'positive' : t.realized_pnl < 0 ? 'negative' : ''}`}>
-                              {t.realized_pnl != null ? `${t.realized_pnl > 0 ? '+' : ''}${Number(t.realized_pnl).toFixed(2)}` : '-'}
-                            </span>
-                            <span className="cell-id">{t.oanda_trade_id || '-'}</span>
+              <div className="trade-table">
+                <div className="trade-header-row">
+                  <span>Date</span>
+                  <span>Strategie</span>
+                  <span>Direction</span>
+                  <span>Entry</span>
+                  <span>SL</span>
+                  <span>TP</span>
+                  <span>Units</span>
+                  <span>Fill</span>
+                  <span>Outcome</span>
+                  <span>PnL</span>
+                  <span>ID</span>
+                </div>
+                {trades.data.map((t) => {
+                  const isExpanded = expandedTradeId === t.oanda_trade_id
+                  return (
+                    <div key={t.id} className="trade-row-group">
+                      <div
+                        className={`trade-row-clickable ${isExpanded ? 'expanded' : ''}`}
+                        onClick={() => t.oanda_trade_id && toggleTradeEvents(t.oanda_trade_id, t.doc_path)}
+                      >
+                        <span className="cell-date">{t.timestamp ? new Date(t.timestamp).toLocaleString('fr-CH', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'}</span>
+                        <span><span className="pill-strat">{t.strategy}</span></span>
+                        <span><span className={`pill-dir ${t.direction === 'LONG' ? 'long' : 'short'}`}>{t.direction}</span></span>
+                        <span>{t.entry != null ? Number(t.entry).toFixed(1) : '-'}</span>
+                        <span>{t.sl != null ? Number(t.sl).toFixed(1) : '-'}</span>
+                        <span>{t.tp != null ? Number(t.tp).toFixed(1) : '-'}</span>
+                        <span>{t.units != null ? Number(t.units).toFixed(1) : '-'}</span>
+                        <span>{t.fill_price != null ? Number(t.fill_price).toFixed(1) : '-'}</span>
+                        <span><span className={`pill-outcome ${t.outcome}`}>{t.outcome || 'unknown'}</span></span>
+                        <span className={`cell-pnl ${t.realized_pnl > 0 ? 'positive' : t.realized_pnl < 0 ? 'negative' : ''}`}>
+                          {t.realized_pnl != null ? `${t.realized_pnl > 0 ? '+' : ''}${Number(t.realized_pnl).toFixed(2)}` : '-'}
+                        </span>
+                        <span className="cell-id">{t.oanda_trade_id || '-'}</span>
+                      </div>
+                      {isExpanded && (
+                        <div className="trade-events-panel">
+                          <div className="trade-actions">
+                            <button
+                              className="btn-danger-sm"
+                              onClick={(e) => { e.stopPropagation(); deleteTrade(t.doc_path) }}
+                            >
+                              Supprimer ce trade
+                            </button>
                           </div>
-                          {isExpanded && (
-                            <div className="trade-events-panel">
-                              <div className="trade-actions">
-                                <button
-                                  className="btn-danger-sm"
-                                  onClick={(e) => { e.stopPropagation(); deleteTrade(t.doc_path) }}
-                                >
-                                  Supprimer ce trade
-                                </button>
-                              </div>
-                              {tradeEvents.loading && <p className="events-loading">Chargement...</p>}
-                              {!tradeEvents.loading && tradeEvents.data && tradeEvents.data.length === 0 && (
-                                <p className="events-empty">Aucun evenement</p>
-                              )}
-                              {!tradeEvents.loading && tradeEvents.data && tradeEvents.data.length > 0 && (
-                                <div className="events-timeline">
-                                  {tradeEvents.data.map((ev, idx) => (
-                                    <div key={idx} className={`event-item event-${(ev.type || '').toLowerCase()}`}>
-                                      <div className="event-dot" />
-                                      <div className="event-content">
-                                        <div className="event-header">
-                                          <span className={`event-type-pill ${(ev.type || '').toLowerCase()}`}>{ev.type}</span>
-                                          <span className="event-time">
-                                            {ev.timestamp ? new Date(ev.timestamp).toLocaleString('fr-CH', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }) : ''}
-                                          </span>
-                                        </div>
-                                        <p className="event-message">{ev.message}</p>
-                                        {ev.data && (
-                                          <div className="event-data">
-                                            {Object.entries(ev.data).map(([k, v]) => (
-                                              <span key={k} className="event-data-item">
-                                                <span className="event-data-key">{k}</span> {String(v)}
-                                              </span>
-                                            ))}
-                                          </div>
-                                        )}
-                                      </div>
+                          {tradeEvents.loading && <p className="events-loading">Chargement...</p>}
+                          {!tradeEvents.loading && tradeEvents.data && tradeEvents.data.length === 0 && (
+                            <p className="events-empty">Aucun evenement</p>
+                          )}
+                          {!tradeEvents.loading && tradeEvents.data && tradeEvents.data.length > 0 && (
+                            <div className="events-timeline">
+                              {tradeEvents.data.map((ev, idx) => (
+                                <div key={idx} className={`event-item event-${(ev.type || '').toLowerCase()}`}>
+                                  <div className="event-dot" />
+                                  <div className="event-content">
+                                    <div className="event-header">
+                                      <span className={`event-type-pill ${(ev.type || '').toLowerCase()}`}>{ev.type}</span>
+                                      <span className="event-time">
+                                        {ev.timestamp ? new Date(ev.timestamp).toLocaleString('fr-CH', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }) : ''}
+                                      </span>
                                     </div>
-                                  ))}
+                                    <p className="event-message">{ev.message}</p>
+                                    {ev.data && (
+                                      <div className="event-data">
+                                        {Object.entries(ev.data).map(([k, v]) => (
+                                          <span key={k} className="event-data-item">
+                                            <span className="event-data-key">{k}</span> {String(v)}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
-                              )}
+                              ))}
                             </div>
                           )}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           )}
           {Array.isArray(trades.data) && trades.data.length === 0 && (
