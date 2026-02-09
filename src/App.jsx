@@ -586,6 +586,7 @@ function App() {
                   <span>TP</span>
                   <span>Units</span>
                   <span>Fill</span>
+                  <span>Scaling</span>
                   <span>Outcome</span>
                   <span>PnL</span>
                   <span>ID</span>
@@ -606,6 +607,13 @@ function App() {
                         <span>{t.tp != null ? Number(t.tp).toFixed(priceDec(t.instrument)) : '-'}</span>
                         <span>{t.units != null ? Number(t.units).toFixed(1) : '-'}</span>
                         <span>{t.fill_price != null ? Number(t.fill_price).toFixed(priceDec(t.instrument)) : '-'}</span>
+                        <span>
+                          {t.scaling_step != null ? (
+                            <span className={`pill-scaling step-${t.scaling_step}`}>
+                              {t.scaling_step === 0 ? '100%' : t.scaling_step === 1 ? 'TP1 50%' : 'TP2 25%'}
+                            </span>
+                          ) : t.breakeven_applied ? 'BE' : '-'}
+                        </span>
                         <span><span className={`pill-outcome ${t.outcome}`}>{t.outcome || 'unknown'}</span></span>
                         <span className={`cell-pnl ${t.realized_pnl > 0 ? 'positive' : t.realized_pnl < 0 ? 'negative' : ''}`}>
                           {t.realized_pnl != null ? `${t.realized_pnl > 0 ? '+' : ''}${Number(t.realized_pnl).toFixed(2)}` : '-'}
