@@ -172,6 +172,18 @@ function App() {
     }
   }
 
+  const deleteTrade = async (docPath) => {
+    if (!docPath || !confirm('Supprimer ce trade et ses evenements ?')) return
+    try {
+      await fetchJson(`/api/trades?path=${encodeURIComponent(docPath)}`, { method: 'DELETE' })
+      setExpandedTradeId(null)
+      setTradeEvents({ data: null, loading: false })
+      loadTrades()
+    } catch (err) {
+      alert(`Erreur: ${err.message}`)
+    }
+  }
+
   const toggleTradeEvents = async (oandaTradeId, docPath) => {
     if (expandedTradeId === oandaTradeId) {
       setExpandedTradeId(null)
@@ -603,6 +615,14 @@ function App() {
                           </div>
                           {isExpanded && (
                             <div className="trade-events-panel">
+                              <div className="trade-actions">
+                                <button
+                                  className="btn-danger-sm"
+                                  onClick={(e) => { e.stopPropagation(); deleteTrade(t.doc_path) }}
+                                >
+                                  Supprimer ce trade
+                                </button>
+                              </div>
                               {tradeEvents.loading && <p className="events-loading">Chargement...</p>}
                               {!tradeEvents.loading && tradeEvents.data && tradeEvents.data.length === 0 && (
                                 <p className="events-empty">Aucun evenement</p>
