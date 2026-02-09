@@ -33,6 +33,9 @@ const INSTRUMENTS = [
   { sym: 'USD_CAD', label: 'USD/CAD', source: 'oanda', decimals: 5 },
 ]
 
+const PRICE_DECIMALS = { SPX500_USD: 1, NAS100_USD: 1, US30_USD: 1, USD_JPY: 3, EUR_JPY: 3, GBP_JPY: 3 }
+const priceDec = (instrument) => PRICE_DECIMALS[instrument] ?? 5
+
 function App() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -521,7 +524,7 @@ function App() {
                       <div className="pos-card-body">
                         <div className="pos-row">
                           <span className="pos-label">Prix d'entree</span>
-                          <span className="pos-value">{parseFloat(t.price).toFixed(1)}</span>
+                          <span className="pos-value">{parseFloat(t.price).toFixed(priceDec(t.instrument))}</span>
                         </div>
                         <div className="pos-row">
                           <span className="pos-label">Units</span>
@@ -530,13 +533,13 @@ function App() {
                         {t.stopLossOrder && (
                           <div className="pos-row">
                             <span className="pos-label">Stop Loss</span>
-                            <span className="pos-value sl">{parseFloat(t.stopLossOrder.price).toFixed(1)}</span>
+                            <span className="pos-value sl">{parseFloat(t.stopLossOrder.price).toFixed(priceDec(t.instrument))}</span>
                           </div>
                         )}
                         {t.takeProfitOrder && (
                           <div className="pos-row">
                             <span className="pos-label">Take Profit</span>
-                            <span className="pos-value tp">{parseFloat(t.takeProfitOrder.price).toFixed(1)}</span>
+                            <span className="pos-value tp">{parseFloat(t.takeProfitOrder.price).toFixed(priceDec(t.instrument))}</span>
                           </div>
                         )}
                         <div className="pos-row pnl-row">
@@ -598,11 +601,11 @@ function App() {
                         <span className="cell-date">{t.timestamp ? new Date(t.timestamp).toLocaleString('fr-CH', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'}</span>
                         <span><span className="pill-strat">{t.strategy}</span></span>
                         <span><span className={`pill-dir ${t.direction === 'LONG' ? 'long' : 'short'}`}>{t.direction}</span></span>
-                        <span>{t.entry != null ? Number(t.entry).toFixed(1) : '-'}</span>
-                        <span>{t.sl != null ? Number(t.sl).toFixed(1) : '-'}</span>
-                        <span>{t.tp != null ? Number(t.tp).toFixed(1) : '-'}</span>
+                        <span>{t.entry != null ? Number(t.entry).toFixed(priceDec(t.instrument)) : '-'}</span>
+                        <span>{t.sl != null ? Number(t.sl).toFixed(priceDec(t.instrument)) : '-'}</span>
+                        <span>{t.tp != null ? Number(t.tp).toFixed(priceDec(t.instrument)) : '-'}</span>
                         <span>{t.units != null ? Number(t.units).toFixed(1) : '-'}</span>
-                        <span>{t.fill_price != null ? Number(t.fill_price).toFixed(1) : '-'}</span>
+                        <span>{t.fill_price != null ? Number(t.fill_price).toFixed(priceDec(t.instrument)) : '-'}</span>
                         <span><span className={`pill-outcome ${t.outcome}`}>{t.outcome || 'unknown'}</span></span>
                         <span className={`cell-pnl ${t.realized_pnl > 0 ? 'positive' : t.realized_pnl < 0 ? 'negative' : ''}`}>
                           {t.realized_pnl != null ? `${t.realized_pnl > 0 ? '+' : ''}${Number(t.realized_pnl).toFixed(2)}` : '-'}
