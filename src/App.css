@@ -551,6 +551,25 @@ label {
 .pill-outcome.unknown { background: #f3f4f6; color: #6b7280; }
 .pill-outcome.auto_closed { background: #fed7aa; color: #9a3412; }
 .pill-outcome.max_hold_expired { background: #fed7aa; color: #9a3412; }
+.pill-outcome.rejected { background: #e8e0f0; color: #6b21a8; }
+
+.rejected-row { opacity: 0.65; }
+.rejected-row:hover { opacity: 1; }
+
+.rejection-detail { padding: 0.75rem 0; }
+.rejection-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; }
+.rejection-confidence { font-size: 0.78rem; color: #9ca3af; font-weight: 600; }
+.rejection-analysis {
+  font-size: 0.8rem; line-height: 1.5; color: #d1d5db;
+  margin: 0.5rem 0; padding: 0.6rem 0.8rem;
+  background: rgba(255,255,255,0.03); border-radius: 8px; border-left: 3px solid #6b21a8;
+}
+.rejection-reasons { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; margin-top: 0.5rem; }
+.rejection-reasons-label { font-size: 0.72rem; color: #9ca3af; font-weight: 600; }
+.rejection-reason-chip {
+  font-size: 0.68rem; padding: 0.15rem 0.5rem;
+  background: rgba(255,255,255,0.06); border-radius: 999px; color: #d1d5db;
+}
 
 .pill-scaling {
   padding: 0.12rem 0.4rem;

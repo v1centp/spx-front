@@ -718,23 +718,32 @@ function App() {
                   <span>ID</span>
                 </div>
                 {trades.data.map((t) => {
-                  const isExpanded = expandedTradeId === t.oanda_trade_id
+                  const isRejected = t.outcome === 'rejected'
+                  const expandKey = t.oanda_trade_id || t.id
+                  const isExpanded = expandedTradeId === expandKey
                   return (
                     <div key={t.id} className="trade-row-group">
                       <div
-                        className={`trade-row-clickable ${isExpanded ? 'expanded' : ''}`}
-                        onClick={() => t.oanda_trade_id && toggleTradeEvents(t.oanda_trade_id, t.doc_path)}
+                        className={`trade-row-clickable ${isExpanded ? 'expanded' : ''} ${isRejected ? 'rejected-row' : ''}`}
+                        onClick={() => {
+                          if (isRejected) {
+                            setExpandedTradeId(isExpanded ? null : expandKey)
+                            setTradeEvents({ data: null, loading: false })
+                          } else if (t.oanda_trade_id) {
+                            toggleTradeEvents(t.oanda_trade_id, t.doc_path)
+                          }
+                        }}
                       >
                         <span className="cell-date">{t.timestamp ? new Date(t.timestamp).toLocaleString('fr-CH', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'}</span>
                         <span><span className="pill-strat">{t.strategy}</span></span>
                         <span><span className={`pill-dir ${t.direction === 'LONG' ? 'long' : 'short'}`}>{t.direction}</span></span>
-                        <span>{t.entry != null ? Number(t.entry).toFixed(priceDec(t.instrument)) : '-'}</span>
-                        <span>{t.sl != null ? Number(t.sl).toFixed(priceDec(t.instrument)) : '-'}</span>
-                        <span>{t.tp != null ? Number(t.tp).toFixed(priceDec(t.instrument)) : '-'}</span>
-                        <span>{t.units != null ? Number(t.units).toFixed(1) : '-'}</span>
-                        <span>{t.fill_price != null ? Number(t.fill_price).toFixed(priceDec(t.instrument)) : '-'}</span>
+                        <span>{isRejected ? t.instrument?.replace('_', '/') : t.entry != null ? Number(t.entry).toFixed(priceDec(t.instrument)) : '-'}</span>
+                        <span>{!isRejected && t.sl != null ? Number(t.sl).toFixed(priceDec(t.instrument)) : '-'}</span>
+                        <span>{!isRejected && t.tp != null ? Number(t.tp).toFixed(priceDec(t.instrument)) : '-'}</span>
+                        <span>{!isRejected && t.units != null ? Number(t.units).toFixed(1) : '-'}</span>
+                        <span>{!isRejected && t.fill_price != null ? Number(t.fill_price).toFixed(priceDec(t.instrument)) : '-'}</span>
                         <span>
-                          {t.scaling_step != null ? (
+                          {isRejected ? '-' : t.scaling_step != null ? (
                             <span className={`pill-scaling step-${t.scaling_step}`}>
                               {t.scaling_step === 0 ? '100%' : t.scaling_step === 1 ? 'TP1 50%' : 'TP2 25%'}
                             </span>
@@ -746,7 +755,38 @@ function App() {
                         </span>
                         <span className="cell-id">{t.oanda_trade_id || '-'}</span>
                       </div>
-                      {isExpanded && (
+                      {isExpanded && isRejected && (
+                        <div className="trade-events-panel">
+                          <div className="trade-actions">
+                            <button
+                              className="btn-danger-sm"
+                              onClick={(e) => { e.stopPropagation(); deleteTrade(t.doc_path) }}
+                            >
+                              Supprimer
+                            </button>
+                          </div>
+                          <div className="rejection-detail">
+                            <div className="rejection-header">
+                              <span className={`pill-dir ${t.gpt_bias === 'BULLISH' ? 'long' : t.gpt_bias === 'BEARISH' ? 'short' : ''}`}>
+                                GPT: {t.gpt_bias}
+                              </span>
+                              {t.gpt_confidence != null && (
+                                <span className="rejection-confidence">Confiance: {t.gpt_confidence}%</span>
+                              )}
+                            </div>
+                            {t.gpt_analysis && <p className="rejection-analysis">{t.gpt_analysis}</p>}
+                            {Array.isArray(t.ichimoku_reasons) && t.ichimoku_reasons.length > 0 && (
+                              <div className="rejection-reasons">
+                                <span className="rejection-reasons-label">Ichimoku:</span>
+                                {t.ichimoku_reasons.map((r, i) => (
+                                  <span key={i} className="rejection-reason-chip">{r}</span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      {isExpanded && !isRejected && (
                         <div className="trade-events-panel">
                           <div className="trade-actions">
                             <button
