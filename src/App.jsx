@@ -54,6 +54,7 @@ function App() {
   const [candles, setCandles] = useState(emptyPanel)
   const [stats, setStats] = useState(emptyPanel)
   const [newsEvents, setNewsEvents] = useState(emptyPanel)
+  const [newsHistory, setNewsHistory] = useState(emptyPanel)
 
   const [logParams, setLogParams] = useState({ limit: 50, level: '', contains: '', tag: '', trade_id: '' })
   const [logTags, setLogTags] = useState([])
@@ -259,6 +260,16 @@ function App() {
       setNewsEvents({ data, loading: false, error: null })
     } catch (err) {
       setNewsEvents({ data: null, loading: false, error: err.message })
+    }
+  }
+
+  const loadNewsHistory = async () => {
+    setNewsHistory((p) => ({ ...p, loading: true, error: null }))
+    try {
+      const data = await fetchJson('/api/news/history')
+      setNewsHistory({ data, loading: false, error: null })
+    } catch (err) {
+      setNewsHistory({ data: null, loading: false, error: err.message })
     }
   }
 
@@ -930,56 +941,124 @@ function App() {
       return 'low'
     }
 
+    const history = newsHistory.data?.events || []
+
     return (
-      <section className="card">
-        <div className="card-header">
-          <div>
-            <p className="eyebrow">News Trading</p>
-            <h2>Évènements à venir</h2>
+      <>
+        <section className="card">
+          <div className="card-header">
+            <div>
+              <p className="eyebrow">News Trading</p>
+              <h2>Évènements à venir</h2>
+            </div>
+            <button className="btn-secondary" onClick={loadNewsEvents} disabled={newsEvents.loading}>
+              {newsEvents.loading ? 'Chargement...' : 'Rafraîchir'}
+            </button>
           </div>
-          <button className="btn-secondary" onClick={loadNewsEvents} disabled={newsEvents.loading}>
-            {newsEvents.loading ? 'Chargement...' : 'Rafraîchir'}
-          </button>
-        </div>
 
-        {newsEvents.error && <p className="error">{newsEvents.error}</p>}
+          {newsEvents.error && <p className="error">{newsEvents.error}</p>}
 
-        {days.length > 0 && days.map((day) => (
-          <div key={day} className="news-day-group">
-            <div className="news-day-header">{formatDay(day)}</div>
-            <div className="news-event-list">
-              {grouped[day].map((ev, idx) => (
-                <div key={idx} className={`news-event-row ${ev.scheduled ? 'news-scheduled' : ''}`}>
-                  <div className="news-event-time">{formatTime(ev.datetime_utc)}</div>
-                  <div className={`news-impact-dot impact-${impactClass(ev.impact)}`} />
-                  <div className="news-event-body">
-                    <div className="news-event-title-row">
-                      <span className="news-country-pill">{ev.country}</span>
-                      <span className="news-event-title">{ev.title}</span>
-                      {ev.scheduled && <span className="news-scheduled-pill">Planifié</span>}
-                    </div>
-                    <div className="news-event-details">
-                      {ev.forecast && <span>Prév: <strong>{ev.forecast}</strong></span>}
-                      {ev.previous && <span>Préc: <strong>{ev.previous}</strong></span>}
-                      {ev.instruments.length > 0 && (
-                        <span className="news-instruments">
-                          {ev.instruments.map((instr) => (
-                            <span key={instr} className="news-instrument-chip">{instr.replace('_', '/')}</span>
-                          ))}
-                        </span>
-                      )}
+          {days.length > 0 && days.map((day) => (
+            <div key={day} className="news-day-group">
+              <div className="news-day-header">{formatDay(day)}</div>
+              <div className="news-event-list">
+                {grouped[day].map((ev, idx) => (
+                  <div key={idx} className={`news-event-row ${ev.scheduled ? 'news-scheduled' : ''}`}>
+                    <div className="news-event-time">{formatTime(ev.datetime_utc)}</div>
+                    <div className={`news-impact-dot impact-${impactClass(ev.impact)}`} />
+                    <div className="news-event-body">
+                      <div className="news-event-title-row">
+                        <span className="news-country-pill">{ev.country}</span>
+                        <span className="news-event-title">{ev.title}</span>
+                        {ev.scheduled && <span className="news-scheduled-pill">Planifié</span>}
+                      </div>
+                      <div className="news-event-details">
+                        {ev.forecast && <span>Prév: <strong>{ev.forecast}</strong></span>}
+                        {ev.previous && <span>Préc: <strong>{ev.previous}</strong></span>}
+                        {ev.instruments.length > 0 && (
+                          <span className="news-instruments">
+                            {ev.instruments.map((instr) => (
+                              <span key={instr} className="news-instrument-chip">{instr.replace('_', '/')}</span>
+                            ))}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
 
-        {!newsEvents.loading && events.length === 0 && !newsEvents.error && (
-          <div className="empty-state"><p>Cliquer sur Rafraîchir pour charger le calendrier</p></div>
-        )}
-      </section>
+          {!newsEvents.loading && events.length === 0 && !newsEvents.error && (
+            <div className="empty-state"><p>Cliquer sur Rafraîchir pour charger le calendrier</p></div>
+          )}
+        </section>
+
+        <section className="card">
+          <div className="card-header">
+            <div>
+              <p className="eyebrow">Historique</p>
+              <h2>Décisions passées</h2>
+            </div>
+            <button className="btn-secondary" onClick={loadNewsHistory} disabled={newsHistory.loading}>
+              {newsHistory.loading ? 'Chargement...' : 'Charger'}
+            </button>
+          </div>
+
+          {newsHistory.error && <p className="error">{newsHistory.error}</p>}
+
+          {history.length > 0 && (
+            <div className="news-history-list">
+              {history.map((ev) => {
+                const isTrade = ev.decision_action === 'TRADE'
+                return (
+                  <div key={ev.id} className={`news-history-item ${isTrade ? 'traded' : 'skipped'}`}>
+                    <div className="news-history-header">
+                      <span className="cell-date">
+                        {ev.timestamp ? new Date(ev.timestamp).toLocaleString('fr-CH', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'}
+                      </span>
+                      <span className="news-instrument-chip">{ev.instrument?.replace('_', '/')}</span>
+                      <span className={`pill-outcome ${isTrade ? 'win' : 'rejected'}`}>
+                        {ev.decision_action || ev.phase || '...'}
+                      </span>
+                    </div>
+                    <div className="news-history-titles">
+                      {(ev.event_titles || []).map((title, i) => (
+                        <span key={i} className="news-history-title">{title}</span>
+                      ))}
+                    </div>
+                    {ev.decision_reason && (
+                      <p className="news-history-reason">{ev.decision_reason}</p>
+                    )}
+                    {ev.surprises && ev.surprises.length > 0 && (
+                      <div className="news-history-surprises">
+                        {ev.surprises.map((s, i) => (
+                          <span key={i} className={`news-surprise-chip ${s.direction === 'ABOVE' ? 'above' : s.direction === 'BELOW' ? 'below' : ''}`}>
+                            {s.title}: {s.direction} ({s.magnitude}{s.pct_deviation != null ? `, ${s.pct_deviation.toFixed(1)}%` : ''})
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {ev.gpt_analysis && (
+                      <details className="news-history-gpt">
+                        <summary>
+                          GPT: {ev.gpt_bias} (confiance {ev.gpt_confidence}%)
+                        </summary>
+                        <p>{ev.gpt_analysis}</p>
+                      </details>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {!newsHistory.loading && history.length === 0 && !newsHistory.error && (
+            <div className="empty-state"><p>Cliquer sur Charger pour voir les décisions passées</p></div>
+          )}
+        </section>
+      </>
     )
   }
 
