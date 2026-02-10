@@ -387,17 +387,24 @@ function App() {
       const candleTimes = data.map(d => d.time)
 
       if (dayTrades.length > 0 && candleTimes.length > 0) {
-        const snapToCandle = (ts) =>
-          candleTimes.reduce((prev, curr) => Math.abs(curr - ts) < Math.abs(prev - ts) ? curr : prev)
+        const snapToCandle = (ts) => {
+          const best = candleTimes.reduce((prev, curr) => Math.abs(curr - ts) < Math.abs(prev - ts) ? curr : prev)
+          return Math.abs(best - ts) <= 300 ? best : null // max 5min (M5)
+        }
 
         const markers = dayTrades
-          .map(t => ({
-            time: snapToCandle(Math.floor(new Date(t.timestamp).getTime() / 1000)),
-            position: t.direction === 'LONG' ? 'belowBar' : 'aboveBar',
-            color: t.direction === 'LONG' ? '#26a69a' : '#ef5350',
-            shape: t.direction === 'LONG' ? 'arrowUp' : 'arrowDown',
-            text: `${t.direction} @ ${Number(t.fill_price || t.entry).toFixed(dec)}`,
-          }))
+          .map(t => {
+            const snapped = snapToCandle(Math.floor(new Date(t.timestamp).getTime() / 1000))
+            if (!snapped) return null
+            return {
+              time: snapped,
+              position: t.direction === 'LONG' ? 'belowBar' : 'aboveBar',
+              color: t.direction === 'LONG' ? '#26a69a' : '#ef5350',
+              shape: t.direction === 'LONG' ? 'arrowUp' : 'arrowDown',
+              text: `${t.direction} @ ${Number(t.fill_price || t.entry).toFixed(dec)}`,
+            }
+          })
+          .filter(Boolean)
           .sort((a, b) => a.time - b.time)
 
         createSeriesMarkers(series, markers)
