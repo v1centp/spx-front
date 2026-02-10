@@ -378,7 +378,12 @@ function App() {
     if (Array.isArray(trades.data)) {
       const dayTrades = trades.data
         .filter(t => t.timestamp?.startsWith(candlesDay))
-        .filter(t => isOanda ? t.instrument === instrument : true)
+        .filter(t => {
+          if (!t.instrument) return false
+          if (isOanda) return t.instrument === instrument
+          const map = { SPX: 'SPX500_USD', NDX: 'NAS100_USD' }
+          return t.instrument === (map[instrument] || instrument)
+        })
       const candleTimes = data.map(d => d.time)
 
       if (dayTrades.length > 0 && candleTimes.length > 0) {
@@ -837,7 +842,12 @@ function App() {
     const dayTrades = Array.isArray(trades.data)
       ? trades.data
           .filter(t => t.timestamp?.startsWith(candlesDay))
-          .filter(t => isOandaInstr ? t.instrument === instrument : true)
+          .filter(t => {
+            if (!t.instrument) return false
+            if (isOandaInstr) return t.instrument === instrument
+            const map = { SPX: 'SPX500_USD', NDX: 'NAS100_USD' }
+            return t.instrument === (map[instrument] || instrument)
+          })
       : []
 
     return (
