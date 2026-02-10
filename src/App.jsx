@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
-import { createChart, CandlestickSeries, createTextWatermark } from 'lightweight-charts'
+import { createChart, CandlestickSeries, createTextWatermark, createSeriesMarkers } from 'lightweight-charts'
 import { ResponsiveContainer, LineChart, Line, Tooltip } from 'recharts'
 import { auth, provider } from './firebase'
 import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth'
@@ -395,7 +395,7 @@ function App() {
           }))
           .sort((a, b) => a.time - b.time)
 
-        series.setMarkers(markers)
+        createSeriesMarkers(series, markers)
 
         dayTrades.forEach(t => {
           if (t.fill_price != null)
