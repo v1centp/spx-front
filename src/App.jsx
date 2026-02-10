@@ -13,7 +13,6 @@ const tabs = [
   { key: 'positions', label: 'Positions', icon: '\u{1F4CA}' },
   { key: 'strategies', label: 'Stratégies', icon: '\u{2699}\u{FE0F}' },
   { key: 'news', label: 'News', icon: '\u{1F4C5}' },
-  { key: 'market', label: 'Marché', icon: '\u{1F4C8}' },
   { key: 'logs', label: 'Logs', icon: '\u{1F4DD}' },
   { key: 'stats', label: 'Stats', icon: '\u{1F4CA}' },
 ]
@@ -218,12 +217,14 @@ function App() {
 
   const currentInstrument = INSTRUMENTS.find(i => i.sym === instrument) || INSTRUMENTS[0]
 
-  const loadMarketData = () => {
+  const loadMarketData = (overrideSym) => {
     if (!candlesDay) return
+    const sym = overrideSym || instrument
+    const instrObj = INSTRUMENTS.find(i => i.sym === sym) || INSTRUMENTS[0]
     setCandles((p) => ({ ...p, loading: true, error: null }))
 
-    if (currentInstrument.source === 'oanda') {
-      fetchJson(`/api/candles/oanda?instrument=${encodeURIComponent(instrument)}&day=${encodeURIComponent(candlesDay)}`)
+    if (instrObj.source === 'oanda') {
+      fetchJson(`/api/candles/oanda?instrument=${encodeURIComponent(sym)}&day=${encodeURIComponent(candlesDay)}`)
         .then(data => setCandles({ data, loading: false, error: null }))
         .catch(err => setCandles({ data: null, loading: false, error: err.message }))
       setOpeningRange({ data: null, loading: false, error: null })
@@ -233,7 +234,7 @@ function App() {
         .catch(err => setCandles({ data: null, loading: false, error: err.message }))
 
       setOpeningRange((p) => ({ ...p, loading: true, error: null }))
-      fetchJson(`/api/opening_range/${candlesDay}?instrument=${instrument}`)
+      fetchJson(`/api/opening_range/${candlesDay}?instrument=${sym}`)
         .then(data => setOpeningRange({ data, loading: false, error: null }))
         .catch(() => setOpeningRange({ data: null, loading: false, error: null }))
     }
@@ -506,12 +507,39 @@ function App() {
   }
 
   /* ─────────────── POSITIONS ─────────────── */
+  const oandaToSym = (oandaInstr) => {
+    const map = { SPX500_USD: 'SPX', NAS100_USD: 'NDX' }
+    return map[oandaInstr] || oandaInstr
+  }
+
+  const handlePositionClick = (oandaInstr) => {
+    const sym = oandaToSym(oandaInstr)
+    if (INSTRUMENTS.find(i => i.sym === sym)) {
+      setInstrument(sym)
+      loadMarketData(sym)
+    }
+  }
+
   const renderPositions = () => {
     const posData = positions.data || {}
     const openTrades = posData.trades || []
     const openPositions = posData.positions || []
 
     const totalPnL = openTrades.reduce((sum, t) => sum + parseFloat(t.unrealizedPL || 0), 0)
+
+    const orData = openingRange.data
+    const isOandaInstr = currentInstrument.source === 'oanda'
+    const dec = currentInstrument.decimals
+    const dayTrades = Array.isArray(trades.data)
+      ? trades.data
+          .filter(t => t.timestamp?.startsWith(candlesDay))
+          .filter(t => {
+            if (!t.instrument) return false
+            if (isOandaInstr) return t.instrument === instrument
+            const map = { SPX: 'SPX500_USD', NDX: 'NAS100_USD' }
+            return t.instrument === (map[instrument] || instrument)
+          })
+      : []
 
     return (
       <>
@@ -540,7 +568,7 @@ function App() {
                   const units = parseFloat(t.currentUnits || t.initialUnits || 0)
                   const dir = units >= 0 ? 'LONG' : 'SHORT'
                   return (
-                    <div key={t.id} className="pos-card">
+                    <div key={t.id} className="pos-card" onClick={() => handlePositionClick(t.instrument)} style={{ cursor: 'pointer' }}>
                       <div className="pos-card-header">
                         <span className="pos-instrument">{t.instrument}</span>
                         <span className={`pill-dir ${dir === 'LONG' ? 'long' : 'short'}`}>{dir}</span>
@@ -585,6 +613,80 @@ function App() {
               <p>Aucune position ouverte</p>
             </div>
           )}
+        </section>
+
+        <section className="card">
+          <div className="card-header">
+            <div>
+              <p className="eyebrow">Données de marché</p>
+              <h2>Graphique intraday</h2>
+            </div>
+          </div>
+
+          <div className="market-controls">
+            <div className="control-group">
+              <label>Instrument</label>
+              <select value={instrument} onChange={(e) => setInstrument(e.target.value)}>
+                {INSTRUMENTS.map(i => (
+                  <option key={i.sym} value={i.sym}>{i.label} ({i.sym})</option>
+                ))}
+              </select>
+            </div>
+            <div className="control-group">
+              <label>Date</label>
+              <div className="input-row">
+                <input type="date" value={candlesDay} onChange={(e) => setCandlesDay(e.target.value)} />
+                <button className="btn-secondary" onClick={loadMarketData} disabled={candles.loading}>
+                  {candles.loading ? '...' : 'Charger'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {!isOandaInstr && orData && (
+            <div className="or-cards">
+              <div className="or-card">
+                <span className="or-label">High</span>
+                <span className="or-value">{Number(orData.high).toFixed(dec)}</span>
+              </div>
+              <div className="or-card">
+                <span className="or-label">Low</span>
+                <span className="or-value">{Number(orData.low).toFixed(dec)}</span>
+              </div>
+              {orData.range_size != null && (
+                <div className="or-card">
+                  <span className="or-label">Range</span>
+                  <span className="or-value">{Number(orData.range_size).toFixed(dec)}</span>
+                </div>
+              )}
+              <div className="or-card">
+                <span className="or-label">Status</span>
+                <span className={`pill ${orData.status === 'ready' ? 'on' : 'off'}`}>{orData.status || '-'}</span>
+              </div>
+            </div>
+          )}
+
+          {dayTrades.length > 0 && (
+            <div className="day-trades-summary">
+              {dayTrades.map((t, i) => (
+                <div key={i} className="day-trade-chip">
+                  <span className={`pill-dir ${t.direction === 'LONG' ? 'long' : 'short'}`}>{t.direction}</span>
+                  <span>Entry {Number(t.fill_price || t.entry).toFixed(dec)}</span>
+                  <span className="muted">SL {Number(t.sl).toFixed(dec)}</span>
+                  <span className="muted">TP {Number(t.tp).toFixed(dec)}</span>
+                  <span className={`pill-outcome ${t.outcome}`}>{t.outcome}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {candles.error && <p className="error">{candles.error}</p>}
+          <div className="chart-card">
+            <div ref={chartContainerRef} />
+            {(!Array.isArray(candles.data) || candles.data.length === 0) && !candles.loading && (
+              <div className="empty-state"><p>Charger des bougies pour afficher le graphique</p></div>
+            )}
+          </div>
         </section>
 
         <section className="card">
@@ -841,99 +943,6 @@ function App() {
     )
   }
 
-  /* ─────────────── MARKET ─────────────── */
-  const renderMarket = () => {
-    const orData = openingRange.data
-    const isOandaInstr = currentInstrument.source === 'oanda'
-    const dec = currentInstrument.decimals
-    const dayTrades = Array.isArray(trades.data)
-      ? trades.data
-          .filter(t => t.timestamp?.startsWith(candlesDay))
-          .filter(t => {
-            if (!t.instrument) return false
-            if (isOandaInstr) return t.instrument === instrument
-            const map = { SPX: 'SPX500_USD', NDX: 'NAS100_USD' }
-            return t.instrument === (map[instrument] || instrument)
-          })
-      : []
-
-    return (
-      <section className="card">
-        <div className="card-header">
-          <div>
-            <p className="eyebrow">Données de marché</p>
-            <h2>Graphique intraday</h2>
-          </div>
-        </div>
-
-        <div className="market-controls">
-          <div className="control-group">
-            <label>Instrument</label>
-            <select value={instrument} onChange={(e) => setInstrument(e.target.value)}>
-              {INSTRUMENTS.map(i => (
-                <option key={i.sym} value={i.sym}>{i.label} ({i.sym})</option>
-              ))}
-            </select>
-          </div>
-          <div className="control-group">
-            <label>Date</label>
-            <div className="input-row">
-              <input type="date" value={candlesDay} onChange={(e) => setCandlesDay(e.target.value)} />
-              <button className="btn-secondary" onClick={loadMarketData} disabled={candles.loading}>
-                {candles.loading ? '...' : 'Charger'}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {!isOandaInstr && orData && (
-          <div className="or-cards">
-            <div className="or-card">
-              <span className="or-label">High</span>
-              <span className="or-value">{Number(orData.high).toFixed(dec)}</span>
-            </div>
-            <div className="or-card">
-              <span className="or-label">Low</span>
-              <span className="or-value">{Number(orData.low).toFixed(dec)}</span>
-            </div>
-            {orData.range_size != null && (
-              <div className="or-card">
-                <span className="or-label">Range</span>
-                <span className="or-value">{Number(orData.range_size).toFixed(dec)}</span>
-              </div>
-            )}
-            <div className="or-card">
-              <span className="or-label">Status</span>
-              <span className={`pill ${orData.status === 'ready' ? 'on' : 'off'}`}>{orData.status || '-'}</span>
-            </div>
-          </div>
-        )}
-
-        {dayTrades.length > 0 && (
-          <div className="day-trades-summary">
-            {dayTrades.map((t, i) => (
-              <div key={i} className="day-trade-chip">
-                <span className={`pill-dir ${t.direction === 'LONG' ? 'long' : 'short'}`}>{t.direction}</span>
-                <span>Entry {Number(t.fill_price || t.entry).toFixed(dec)}</span>
-                <span className="muted">SL {Number(t.sl).toFixed(dec)}</span>
-                <span className="muted">TP {Number(t.tp).toFixed(dec)}</span>
-                <span className={`pill-outcome ${t.outcome}`}>{t.outcome}</span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {candles.error && <p className="error">{candles.error}</p>}
-        <div className="chart-card">
-          <div ref={chartContainerRef} />
-          {(!Array.isArray(candles.data) || candles.data.length === 0) && !candles.loading && (
-            <div className="empty-state"><p>Charger des bougies pour afficher le graphique</p></div>
-          )}
-        </div>
-      </section>
-    )
-  }
-
   /* ─────────────── LOGS ─────────────── */
   const renderLogs = () => {
     return (
@@ -1158,7 +1167,6 @@ function App() {
       <Route path="/positions" element={renderPositions()} />
       <Route path="/strategies" element={renderStrategies()} />
       <Route path="/news" element={renderNews()} />
-      <Route path="/market" element={renderMarket()} />
       <Route path="/logs" element={renderLogs()} />
       <Route path="/stats" element={renderStats()} />
       <Route path="*" element={<Navigate to="/account" replace />} />
