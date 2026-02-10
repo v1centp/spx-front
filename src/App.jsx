@@ -12,6 +12,7 @@ const tabs = [
   { key: 'account', label: 'Compte', icon: '\u{1F4B0}' },
   { key: 'positions', label: 'Positions', icon: '\u{1F4CA}' },
   { key: 'strategies', label: 'Strategies', icon: '\u{2699}\u{FE0F}' },
+  { key: 'news', label: 'News', icon: '\u{1F4C5}' },
   { key: 'market', label: 'Marche', icon: '\u{1F4C8}' },
   { key: 'logs', label: 'Logs', icon: '\u{1F4DD}' },
   { key: 'stats', label: 'Stats', icon: '\u{1F4CA}' },
@@ -53,6 +54,7 @@ function App() {
   const [openingRange, setOpeningRange] = useState(emptyPanel)
   const [candles, setCandles] = useState(emptyPanel)
   const [stats, setStats] = useState(emptyPanel)
+  const [newsEvents, setNewsEvents] = useState(emptyPanel)
 
   const [logParams, setLogParams] = useState({ limit: 50, level: '', contains: '', tag: '', trade_id: '' })
   const [logTags, setLogTags] = useState([])
@@ -246,6 +248,16 @@ function App() {
       setStats({ data, loading: false, error: null })
     } catch (err) {
       setStats({ data: null, loading: false, error: err.message })
+    }
+  }
+
+  const loadNewsEvents = async () => {
+    setNewsEvents((p) => ({ ...p, loading: true, error: null }))
+    try {
+      const data = await fetchJson('/api/news/calendar')
+      setNewsEvents({ data, loading: false, error: null })
+    } catch (err) {
+      setNewsEvents({ data: null, loading: false, error: err.message })
     }
   }
 
@@ -737,6 +749,86 @@ function App() {
     </section>
   )
 
+  /* ─────────────── NEWS CALENDAR ─────────────── */
+  const renderNews = () => {
+    const events = newsEvents.data?.events || []
+
+    // Group events by day
+    const grouped = {}
+    events.forEach((ev) => {
+      const day = ev.datetime_utc.slice(0, 10)
+      if (!grouped[day]) grouped[day] = []
+      grouped[day].push(ev)
+    })
+    const days = Object.keys(grouped).sort()
+
+    const formatTime = (iso) =>
+      new Date(iso).toLocaleString('fr-CH', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Zurich' })
+
+    const formatDay = (dateStr) => {
+      const d = new Date(dateStr + 'T12:00:00Z')
+      return d.toLocaleDateString('fr-CH', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Zurich' })
+    }
+
+    const impactClass = (impact) => {
+      if (impact === 'High') return 'high'
+      if (impact === 'Medium') return 'medium'
+      return 'low'
+    }
+
+    return (
+      <section className="card">
+        <div className="card-header">
+          <div>
+            <p className="eyebrow">News Trading</p>
+            <h2>Evenements a venir</h2>
+          </div>
+          <button className="btn-secondary" onClick={loadNewsEvents} disabled={newsEvents.loading}>
+            {newsEvents.loading ? 'Chargement...' : 'Rafraichir'}
+          </button>
+        </div>
+
+        {newsEvents.error && <p className="error">{newsEvents.error}</p>}
+
+        {days.length > 0 && days.map((day) => (
+          <div key={day} className="news-day-group">
+            <div className="news-day-header">{formatDay(day)}</div>
+            <div className="news-event-list">
+              {grouped[day].map((ev, idx) => (
+                <div key={idx} className={`news-event-row ${ev.scheduled ? 'news-scheduled' : ''}`}>
+                  <div className="news-event-time">{formatTime(ev.datetime_utc)}</div>
+                  <div className={`news-impact-dot impact-${impactClass(ev.impact)}`} />
+                  <div className="news-event-body">
+                    <div className="news-event-title-row">
+                      <span className="news-country-pill">{ev.country}</span>
+                      <span className="news-event-title">{ev.title}</span>
+                      {ev.scheduled && <span className="news-scheduled-pill">Planifie</span>}
+                    </div>
+                    <div className="news-event-details">
+                      {ev.forecast && <span>Prev: <strong>{ev.forecast}</strong></span>}
+                      {ev.previous && <span>Prec: <strong>{ev.previous}</strong></span>}
+                      {ev.instruments.length > 0 && (
+                        <span className="news-instruments">
+                          {ev.instruments.map((instr) => (
+                            <span key={instr} className="news-instrument-chip">{instr.replace('_', '/')}</span>
+                          ))}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+
+        {!newsEvents.loading && events.length === 0 && !newsEvents.error && (
+          <div className="empty-state"><p>Cliquer sur Rafraichir pour charger le calendrier</p></div>
+        )}
+      </section>
+    )
+  }
+
   /* ─────────────── MARKET ─────────────── */
   const renderMarket = () => {
     const orData = openingRange.data
@@ -1048,6 +1140,7 @@ function App() {
       <Route path="/account" element={renderAccount()} />
       <Route path="/positions" element={renderPositions()} />
       <Route path="/strategies" element={renderStrategies()} />
+      <Route path="/news" element={renderNews()} />
       <Route path="/market" element={renderMarket()} />
       <Route path="/logs" element={renderLogs()} />
       <Route path="/stats" element={renderStats()} />
