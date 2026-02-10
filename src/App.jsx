@@ -11,9 +11,9 @@ const emptyPanel = { data: null, loading: false, error: null }
 const tabs = [
   { key: 'account', label: 'Compte', icon: '\u{1F4B0}' },
   { key: 'positions', label: 'Positions', icon: '\u{1F4CA}' },
-  { key: 'strategies', label: 'Strategies', icon: '\u{2699}\u{FE0F}' },
+  { key: 'strategies', label: 'Stratégies', icon: '\u{2699}\u{FE0F}' },
   { key: 'news', label: 'News', icon: '\u{1F4C5}' },
-  { key: 'market', label: 'Marche', icon: '\u{1F4C8}' },
+  { key: 'market', label: 'Marché', icon: '\u{1F4C8}' },
   { key: 'logs', label: 'Logs', icon: '\u{1F4DD}' },
   { key: 'stats', label: 'Stats', icon: '\u{1F4CA}' },
 ]
@@ -178,7 +178,7 @@ function App() {
   }
 
   const deleteTrade = async (docPath) => {
-    if (!docPath || !confirm('Supprimer ce trade et ses evenements ?')) return
+    if (!docPath || !confirm('Supprimer ce trade et ses évènements ?')) return
     try {
       await fetchJson(`/api/trades?path=${encodeURIComponent(docPath)}`, { method: 'DELETE' })
       setExpandedTradeId(null)
@@ -278,7 +278,7 @@ function App() {
         loadStrategies()
         loadBalance()
       } else if (u) {
-        setAuthError("Cet utilisateur n'est pas autorise.")
+        setAuthError("Cet utilisateur n'est pas autorisé.")
         signOut(auth)
         setUser(null)
       } else {
@@ -469,7 +469,7 @@ function App() {
             <h2>Bonjour, {user?.displayName?.split(' ')[0] || 'Vincent'}</h2>
           </div>
           <button className="btn-secondary" onClick={loadBalance} disabled={balance.loading}>
-            {balance.loading ? 'Chargement...' : 'Rafraichir'}
+            {balance.loading ? 'Chargement...' : 'Rafraîchir'}
           </button>
         </div>
         {balance.error && <p className="error">{balance.error}</p>}
@@ -481,7 +481,7 @@ function App() {
             </div>
             <div className="stat-card">
               <span className="stat-label">Statut</span>
-              <span className="stat-value">{balance.data.message || 'Connecte'}</span>
+              <span className="stat-value">{balance.data.message || 'Connecté'}</span>
             </div>
             <div className="stat-card">
               <span className="stat-label">Email</span>
@@ -510,7 +510,7 @@ function App() {
               <h2>En cours {openTrades.length > 0 && <span className="count-badge">{openTrades.length}</span>}</h2>
             </div>
             <button className="btn-secondary" onClick={loadPositions} disabled={positions.loading}>
-              {positions.loading ? 'Chargement...' : 'Rafraichir'}
+              {positions.loading ? 'Chargement...' : 'Rafraîchir'}
             </button>
           </div>
 
@@ -535,7 +535,7 @@ function App() {
                       </div>
                       <div className="pos-card-body">
                         <div className="pos-row">
-                          <span className="pos-label">Prix d'entree</span>
+                          <span className="pos-label">Prix d'entrée</span>
                           <span className="pos-value">{parseFloat(t.price).toFixed(priceDec(t.instrument))}</span>
                         </div>
                         <div className="pos-row">
@@ -579,7 +579,7 @@ function App() {
           <div className="card-header">
             <div>
               <p className="eyebrow">Historique</p>
-              <h2>Trades passes</h2>
+              <h2>Trades passés</h2>
             </div>
             <button className="btn-secondary" onClick={loadTrades} disabled={trades.loading}>
               {trades.loading ? 'Chargement...' : 'Charger'}
@@ -591,7 +591,7 @@ function App() {
               <div className="trade-table">
                 <div className="trade-header-row">
                   <span>Date</span>
-                  <span>Strategie</span>
+                  <span>Stratégie</span>
                   <span>Direction</span>
                   <span>Entry</span>
                   <span>SL</span>
@@ -644,7 +644,7 @@ function App() {
                           </div>
                           {tradeEvents.loading && <p className="events-loading">Chargement...</p>}
                           {!tradeEvents.loading && tradeEvents.data && tradeEvents.data.length === 0 && (
-                            <p className="events-empty">Aucun evenement</p>
+                            <p className="events-empty">Aucun évènement</p>
                           )}
                           {!tradeEvents.loading && tradeEvents.data && tradeEvents.data.length > 0 && (
                             <div className="events-timeline">
@@ -682,7 +682,7 @@ function App() {
             </div>
           )}
           {Array.isArray(trades.data) && trades.data.length === 0 && (
-            <div className="empty-state"><p>Aucun trade enregistre</p></div>
+            <div className="empty-state"><p>Aucun trade enregistré</p></div>
           )}
         </section>
       </>
@@ -695,15 +695,15 @@ function App() {
       <div className="card-header">
         <div>
           <p className="eyebrow">Configuration</p>
-          <h2>Strategies actives</h2>
+          <h2>Stratégies actives</h2>
         </div>
         <button className="btn-secondary" onClick={loadStrategies} disabled={strategies.loading}>
-          {strategies.loading ? 'Chargement...' : 'Rafraichir'}
+          {strategies.loading ? 'Chargement...' : 'Rafraîchir'}
         </button>
       </div>
       {strategies.error && <p className="error">{strategies.error}</p>}
       {strategyEntries.length === 0 && !strategies.loading && (
-        <div className="empty-state"><p>Aucune strategie configuree</p></div>
+        <div className="empty-state"><p>Aucune stratégie configurée</p></div>
       )}
       <div className="strat-grid">
         {strategyEntries.map(([name, enabled]) => (
@@ -719,7 +719,7 @@ function App() {
                 onClick={() => toggleStrategy(name)}
                 disabled={strategies.loading}
               >
-                {enabled ? 'Desactiver' : 'Activer'}
+                {enabled ? 'Désactiver' : 'Activer'}
               </button>
             </div>
           </div>
@@ -781,10 +781,10 @@ function App() {
         <div className="card-header">
           <div>
             <p className="eyebrow">News Trading</p>
-            <h2>Evenements a venir</h2>
+            <h2>Évènements à venir</h2>
           </div>
           <button className="btn-secondary" onClick={loadNewsEvents} disabled={newsEvents.loading}>
-            {newsEvents.loading ? 'Chargement...' : 'Rafraichir'}
+            {newsEvents.loading ? 'Chargement...' : 'Rafraîchir'}
           </button>
         </div>
 
@@ -802,11 +802,11 @@ function App() {
                     <div className="news-event-title-row">
                       <span className="news-country-pill">{ev.country}</span>
                       <span className="news-event-title">{ev.title}</span>
-                      {ev.scheduled && <span className="news-scheduled-pill">Planifie</span>}
+                      {ev.scheduled && <span className="news-scheduled-pill">Planifié</span>}
                     </div>
                     <div className="news-event-details">
-                      {ev.forecast && <span>Prev: <strong>{ev.forecast}</strong></span>}
-                      {ev.previous && <span>Prec: <strong>{ev.previous}</strong></span>}
+                      {ev.forecast && <span>Prév: <strong>{ev.forecast}</strong></span>}
+                      {ev.previous && <span>Préc: <strong>{ev.previous}</strong></span>}
                       {ev.instruments.length > 0 && (
                         <span className="news-instruments">
                           {ev.instruments.map((instr) => (
@@ -823,7 +823,7 @@ function App() {
         ))}
 
         {!newsEvents.loading && events.length === 0 && !newsEvents.error && (
-          <div className="empty-state"><p>Cliquer sur Rafraichir pour charger le calendrier</p></div>
+          <div className="empty-state"><p>Cliquer sur Rafraîchir pour charger le calendrier</p></div>
         )}
       </section>
     )
@@ -844,7 +844,7 @@ function App() {
       <section className="card">
         <div className="card-header">
           <div>
-            <p className="eyebrow">Donnees de marche</p>
+            <p className="eyebrow">Données de marché</p>
             <h2>Graphique intraday</h2>
           </div>
         </div>
@@ -910,7 +910,7 @@ function App() {
         <div className="chart-card">
           <div ref={chartContainerRef} />
           {(!Array.isArray(candles.data) || candles.data.length === 0) && !candles.loading && (
-            <div className="empty-state"><p>Charge des bougies pour afficher le graphique</p></div>
+            <div className="empty-state"><p>Charger des bougies pour afficher le graphique</p></div>
           )}
         </div>
       </section>
@@ -923,7 +923,7 @@ function App() {
       <section className="card">
         <div className="card-header">
           <div>
-            <p className="eyebrow">Systeme</p>
+            <p className="eyebrow">Système</p>
             <h2>Logs</h2>
           </div>
           <button className="btn-secondary" onClick={loadLogs} disabled={logs.loading}>
@@ -958,7 +958,7 @@ function App() {
           </div>
           {logTags.length > 0 && (
             <div className="control-group">
-              <label>Strategie / Service</label>
+              <label>Stratégie / Service</label>
               <div className="level-chips">
                 <button
                   className={`chip ${logParams.tag === '' ? 'active' : ''}`}
@@ -990,7 +990,7 @@ function App() {
             <label>Recherche</label>
             <input
               value={logParams.contains}
-              placeholder="Mot-cle..."
+              placeholder="Mot-clé..."
               onChange={(e) => setLogParams((p) => ({ ...p, contains: e.target.value }))}
             />
           </div>
@@ -1015,7 +1015,7 @@ function App() {
           </div>
         )}
         {Array.isArray(logs.data) && logs.data.length === 0 && (
-          <div className="empty-state"><p>Aucun log trouve</p></div>
+          <div className="empty-state"><p>Aucun log trouvé</p></div>
         )}
       </section>
     )
@@ -1031,10 +1031,10 @@ function App() {
         <div className="card-header">
           <div>
             <p className="eyebrow">Performance</p>
-            <h2>Stats par strategie</h2>
+            <h2>Stats par stratégie</h2>
           </div>
           <button className="btn-secondary" onClick={loadStats} disabled={stats.loading}>
-            {stats.loading ? 'Chargement...' : 'Rafraichir'}
+            {stats.loading ? 'Chargement...' : 'Rafraîchir'}
           </button>
         </div>
 
@@ -1043,7 +1043,7 @@ function App() {
         {d && (
           <>
             <div className="stats-global">
-              <p className="eyebrow">PnL global realise</p>
+              <p className="eyebrow">PnL global réalisé</p>
               <p className={`stats-global-value ${d.global_pnl >= 0 ? 'positive' : 'negative'}`}>
                 {d.global_pnl >= 0 ? '+' : ''}{d.global_pnl.toFixed(2)} CHF
               </p>
@@ -1129,7 +1129,7 @@ function App() {
         )}
 
         {!stats.loading && !d && !stats.error && (
-          <div className="empty-state"><p>Cliquer sur Rafraichir pour charger les stats</p></div>
+          <div className="empty-state"><p>Cliquer sur Rafraîchir pour charger les stats</p></div>
         )}
       </section>
     )
@@ -1159,7 +1159,7 @@ function App() {
           {user ? (
             <>
               <span className="muted">{user.email}</span>
-              <button className="btn-ghost" onClick={() => signOut(auth)}>Deconnexion</button>
+              <button className="btn-ghost" onClick={() => signOut(auth)}>Déconnexion</button>
             </>
           ) : (
             <button onClick={() => signInWithPopup(auth, provider)}>Connexion Google</button>
@@ -1171,7 +1171,7 @@ function App() {
         <div className="login-page">
           <div className="login-card">
             <h2>Connexion requise</h2>
-            <p className="muted">Acces restreint.</p>
+            <p className="muted">Accès restreint.</p>
             <button onClick={() => signInWithPopup(auth, provider)}>Connexion avec Google</button>
             {authError && <p className="error">{authError}</p>}
           </div>
