@@ -1168,7 +1168,7 @@ function App() {
                     {ev.surprises && ev.surprises.length > 0 && (
                       <div className="news-history-surprises">
                         {ev.surprises.map((s, i) => (
-                          <span key={i} className={`news-surprise-chip ${s.direction === 'ABOVE' ? 'above' : s.direction === 'BELOW' ? 'below' : ''}`}>
+                          <span key={i} className={`news-surprise-chip ${s.direction === 'ABOVE' ? (s.is_inverse ? 'below' : 'above') : s.direction === 'BELOW' ? (s.is_inverse ? 'above' : 'below') : ''}`}>
                             {s.title}: {s.direction} ({s.magnitude}{s.pct_deviation != null ? `, ${s.pct_deviation.toFixed(1)}%` : ''})
                           </span>
                         ))}
