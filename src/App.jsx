@@ -65,6 +65,7 @@ function App() {
   const [tradeFilterInstrument, setTradeFilterInstrument] = useState('')
   const [tradeFilterDate, setTradeFilterDate] = useState('')
   const [riskChf, setRiskChf] = useState({ value: 50, saving: false, loaded: false })
+  const [riskUsdCrypto, setRiskUsdCrypto] = useState({ value: 50, saving: false, loaded: false })
 
   const chartContainerRef = useRef(null)
 
@@ -114,6 +115,7 @@ function App() {
     try {
       const data = await fetchJson('/api/config/risk')
       setRiskChf((p) => ({ ...p, value: data.risk_chf, loaded: true }))
+      setRiskUsdCrypto((p) => ({ ...p, value: data.risk_usd_crypto || 50, loaded: true }))
     } catch {
       // keep default
     }
@@ -131,6 +133,21 @@ function App() {
       setRiskChf({ value: num, saving: false, loaded: true })
     } catch {
       setRiskChf((p) => ({ ...p, saving: false }))
+    }
+  }
+
+  const saveRiskCrypto = async (val) => {
+    const num = Number(val)
+    if (!num || num <= 0) return
+    setRiskUsdCrypto((p) => ({ ...p, saving: true }))
+    try {
+      await fetchJson('/api/config/risk', {
+        method: 'PUT',
+        body: JSON.stringify({ risk_usd_crypto: num }),
+      })
+      setRiskUsdCrypto({ value: num, saving: false, loaded: true })
+    } catch {
+      setRiskUsdCrypto((p) => ({ ...p, saving: false }))
     }
   }
 
@@ -750,6 +767,7 @@ function App() {
                 <div className="trade-header-row">
                   <span>Date</span>
                   <span>Stratégie</span>
+                  <span>Broker</span>
                   <span>Instrument</span>
                   <span>Direction</span>
                   <span>Entry</span>
@@ -764,7 +782,8 @@ function App() {
                 </div>
                 {filteredTrades.map((t) => {
                   const isRejected = t.outcome === 'rejected'
-                  const expandKey = t.oanda_trade_id || t.id
+                  const tradeIdVal = t.oanda_trade_id || t.trade_id
+                  const expandKey = tradeIdVal || t.id
                   const isExpanded = expandedTradeId === expandKey
                   return (
                     <div key={t.id} className="trade-row-group">
@@ -774,13 +793,14 @@ function App() {
                           if (isRejected) {
                             setExpandedTradeId(isExpanded ? null : expandKey)
                             setTradeEvents({ data: null, loading: false })
-                          } else if (t.oanda_trade_id) {
-                            toggleTradeEvents(t.oanda_trade_id, t.doc_path)
+                          } else if (tradeIdVal) {
+                            toggleTradeEvents(tradeIdVal, t.doc_path)
                           }
                         }}
                       >
                         <span className="cell-date">{t.timestamp ? new Date(t.timestamp).toLocaleString('fr-CH', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'}</span>
                         <span><span className="pill-strat">{t.strategy}</span></span>
+                        <span><span className={`pill-broker ${t.broker === 'kraken' ? 'kraken' : 'oanda'}`}>{t.broker || 'oanda'}</span></span>
                         <span className="cell-instrument">{t.instrument?.replace('_', '/') || '-'}</span>
                         <span><span className={`pill-dir ${t.direction === 'LONG' ? 'long' : 'short'}`}>{t.direction}</span></span>
                         <span>{!isRejected && t.entry != null ? Number(t.entry).toFixed(priceDec(t.instrument)) : '-'}</span>
@@ -799,7 +819,7 @@ function App() {
                         <span className={`cell-pnl ${t.realized_pnl > 0 ? 'positive' : t.realized_pnl < 0 ? 'negative' : ''}`}>
                           {t.realized_pnl != null ? `${t.realized_pnl > 0 ? '+' : ''}${Number(t.realized_pnl).toFixed(2)}` : '-'}
                         </span>
-                        <span className="cell-id">{t.oanda_trade_id || '-'}</span>
+                        <span className="cell-id">{t.oanda_trade_id || t.trade_id || '-'}</span>
                       </div>
                       {isExpanded && isRejected && (
                         <div className="trade-events-panel">
@@ -988,7 +1008,7 @@ function App() {
       </div>
 
       <div className="risk-config">
-        <p className="eyebrow">Risque par trade</p>
+        <p className="eyebrow">Risque par trade (Forex / OANDA)</p>
         <div className="risk-row">
           <input
             type="number"
@@ -1004,6 +1024,24 @@ function App() {
             disabled={riskChf.saving}
           >
             {riskChf.saving ? '...' : 'Sauvegarder'}
+          </button>
+        </div>
+        <p className="eyebrow" style={{ marginTop: '1rem' }}>Risque par trade (Crypto / Kraken)</p>
+        <div className="risk-row">
+          <input
+            type="number"
+            min={1}
+            max={500}
+            value={riskUsdCrypto.value}
+            onChange={(e) => setRiskUsdCrypto((p) => ({ ...p, value: Number(e.target.value) }))}
+          />
+          <span className="risk-unit">USD</span>
+          <button
+            className="btn-secondary"
+            onClick={() => saveRiskCrypto(riskUsdCrypto.value)}
+            disabled={riskUsdCrypto.saving}
+          >
+            {riskUsdCrypto.saving ? '...' : 'Sauvegarder'}
           </button>
         </div>
       </div>

@@ -537,6 +537,22 @@ label {
   font-weight: 600;
 }
 
+.pill-broker {
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.pill-broker.oanda {
+  background: #dbeafe;
+  color: #1e40af;
+}
+.pill-broker.kraken {
+  background: #f3e8ff;
+  color: #7c3aed;
+}
+
 .pill-outcome {
   padding: 0.15rem 0.5rem;
   border-radius: 999px;
@@ -761,7 +777,7 @@ label {
 
 .trade-header-row {
   display: grid;
-  grid-template-columns: 1fr 0.8fr 0.8fr 0.7fr 0.6fr 0.6fr 0.6fr 0.5fr 0.6fr 0.6fr 0.7fr 0.6fr 0.8fr;
+  grid-template-columns: 1fr 0.8fr 0.6fr 0.8fr 0.7fr 0.6fr 0.6fr 0.6fr 0.5fr 0.6fr 0.6fr 0.7fr 0.6fr 0.8fr;
   align-items: center;
   padding: 0.55rem 0.65rem;
   background: #111827;
@@ -810,7 +826,7 @@ label {
 
 .trade-row-clickable {
   display: grid;
-  grid-template-columns: 1fr 0.8fr 0.8fr 0.7fr 0.6fr 0.6fr 0.6fr 0.5fr 0.6fr 0.6fr 0.7fr 0.6fr 0.8fr;
+  grid-template-columns: 1fr 0.8fr 0.6fr 0.8fr 0.7fr 0.6fr 0.6fr 0.6fr 0.5fr 0.6fr 0.6fr 0.7fr 0.6fr 0.8fr;
   align-items: center;
   padding: 0.5rem 0.65rem;
   cursor: pointer;
