@@ -579,6 +579,8 @@ label {
   font-size: 0.8rem; line-height: 1.5; color: #d1d5db;
   margin: 0.5rem 0; padding: 0.6rem 0.8rem;
   background: rgba(255,255,255,0.03); border-radius: 8px; border-left: 3px solid #6b21a8;
+  overflow-wrap: break-word; word-break: break-word; white-space: pre-wrap;
+  max-width: 100%; overflow: hidden;
 }
 .rejection-reasons { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; margin-top: 0.5rem; }
 .rejection-reasons-label { font-size: 0.72rem; color: #9ca3af; font-weight: 600; }
@@ -849,6 +851,7 @@ label {
   background: #f8fafc;
   border-bottom: 1px solid #e5e7eb;
   padding: 0.75rem 1rem 0.75rem 1.5rem;
+  overflow: hidden; max-width: 100%; box-sizing: border-box;
 }
 .trade-actions {
   display: flex;
