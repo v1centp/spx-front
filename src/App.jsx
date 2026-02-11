@@ -62,6 +62,8 @@ function App() {
   const [instrument, setInstrument] = useState('SPX')
   const [expandedTradeId, setExpandedTradeId] = useState(null)
   const [tradeEvents, setTradeEvents] = useState({ data: null, loading: false })
+  const [tradeFilterInstrument, setTradeFilterInstrument] = useState('')
+  const [tradeFilterDate, setTradeFilterDate] = useState('')
   const [riskChf, setRiskChf] = useState({ value: 50, saving: false, loaded: false })
 
   const chartContainerRef = useRef(null)
@@ -710,13 +712,45 @@ function App() {
               {trades.loading ? 'Chargement...' : 'Charger'}
             </button>
           </div>
+          {Array.isArray(trades.data) && trades.data.length > 0 && (() => {
+            const allInstruments = [...new Set(trades.data.map(t => t.instrument).filter(Boolean))].sort()
+            const filteredTrades = trades.data.filter(t => {
+              if (tradeFilterInstrument && t.instrument !== tradeFilterInstrument) return false
+              if (tradeFilterDate && t.date !== tradeFilterDate) return false
+              return true
+            })
+            return (
+              <>
+                <div className="trade-filters">
+                  <select value={tradeFilterInstrument} onChange={e => setTradeFilterInstrument(e.target.value)}>
+                    <option value="">Tous les instruments</option>
+                    {allInstruments.map(inst => (
+                      <option key={inst} value={inst}>{inst.replace('_', '/')}</option>
+                    ))}
+                  </select>
+                  <input type="date" value={tradeFilterDate} onChange={e => setTradeFilterDate(e.target.value)} />
+                  {(tradeFilterInstrument || tradeFilterDate) && (
+                    <button className="btn-secondary" onClick={() => { setTradeFilterInstrument(''); setTradeFilterDate('') }}>Reset</button>
+                  )}
+                  <span className="muted" style={{ fontSize: '0.78rem' }}>{filteredTrades.length} / {trades.data.length}</span>
+                </div>
+              </>
+            )
+          })()}
           {trades.error && <p className="error">{trades.error}</p>}
-          {Array.isArray(trades.data) && trades.data.length > 0 && (
+          {Array.isArray(trades.data) && trades.data.length > 0 && (() => {
+            const filteredTrades = trades.data.filter(t => {
+              if (tradeFilterInstrument && t.instrument !== tradeFilterInstrument) return false
+              if (tradeFilterDate && t.date !== tradeFilterDate) return false
+              return true
+            })
+            return filteredTrades.length > 0 ? (
             <div className="table-wrap">
               <div className="trade-table">
                 <div className="trade-header-row">
                   <span>Date</span>
                   <span>Stratégie</span>
+                  <span>Instrument</span>
                   <span>Direction</span>
                   <span>Entry</span>
                   <span>SL</span>
@@ -728,7 +762,7 @@ function App() {
                   <span>PnL</span>
                   <span>ID</span>
                 </div>
-                {trades.data.map((t) => {
+                {filteredTrades.map((t) => {
                   const isRejected = t.outcome === 'rejected'
                   const expandKey = t.oanda_trade_id || t.id
                   const isExpanded = expandedTradeId === expandKey
@@ -747,8 +781,9 @@ function App() {
                       >
                         <span className="cell-date">{t.timestamp ? new Date(t.timestamp).toLocaleString('fr-CH', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'}</span>
                         <span><span className="pill-strat">{t.strategy}</span></span>
+                        <span className="cell-instrument">{t.instrument?.replace('_', '/') || '-'}</span>
                         <span><span className={`pill-dir ${t.direction === 'LONG' ? 'long' : 'short'}`}>{t.direction}</span></span>
-                        <span>{isRejected ? t.instrument?.replace('_', '/') : t.entry != null ? Number(t.entry).toFixed(priceDec(t.instrument)) : '-'}</span>
+                        <span>{!isRejected && t.entry != null ? Number(t.entry).toFixed(priceDec(t.instrument)) : '-'}</span>
                         <span>{!isRejected && t.sl != null ? Number(t.sl).toFixed(priceDec(t.instrument)) : '-'}</span>
                         <span>{!isRejected && t.tp != null ? Number(t.tp).toFixed(priceDec(t.instrument)) : '-'}</span>
                         <span>{!isRejected && t.units != null ? Number(t.units).toFixed(1) : '-'}</span>
@@ -777,15 +812,35 @@ function App() {
                             </button>
                           </div>
                           <div className="rejection-detail">
-                            <div className="rejection-header">
-                              <span className={`pill-dir ${t.gpt_bias === 'BULLISH' ? 'long' : t.gpt_bias === 'BEARISH' ? 'short' : ''}`}>
-                                GPT: {t.gpt_bias}
-                              </span>
-                              {t.gpt_confidence != null && (
-                                <span className="rejection-confidence">Confiance: {t.gpt_confidence}%</span>
-                              )}
-                            </div>
-                            {t.gpt_analysis && <p className="rejection-analysis">{t.gpt_analysis}</p>}
+                            {t.rejection_type === 'news' ? (
+                              <>
+                                <div className="rejection-header">
+                                  <span className="pill-outcome rejected">News block</span>
+                                </div>
+                                {t.news_check?.nearby_events?.length > 0 && (
+                                  <div className="rejection-reasons">
+                                    <span className="rejection-reasons-label">Events proches:</span>
+                                    {t.news_check.nearby_events.map((e, i) => (
+                                      <span key={i} className="rejection-reason-chip">
+                                        {e.title} ({e.country}) {e.minutes_away > 0 ? `dans ${Math.round(e.minutes_away)}min` : `il y a ${Math.round(Math.abs(e.minutes_away))}min`}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </>
+                            ) : (
+                              <>
+                                <div className="rejection-header">
+                                  <span className={`pill-dir ${t.gpt_bias === 'BULLISH' ? 'long' : t.gpt_bias === 'BEARISH' ? 'short' : ''}`}>
+                                    GPT: {t.gpt_bias}
+                                  </span>
+                                  {t.gpt_confidence != null && (
+                                    <span className="rejection-confidence">Confiance: {t.gpt_confidence}%</span>
+                                  )}
+                                </div>
+                                {t.gpt_analysis && <p className="rejection-analysis">{t.gpt_analysis}</p>}
+                              </>
+                            )}
                             {Array.isArray(t.ichimoku_reasons) && t.ichimoku_reasons.length > 0 && (
                               <div className="rejection-reasons">
                                 <span className="rejection-reasons-label">Ichimoku:</span>
@@ -807,6 +862,44 @@ function App() {
                               Supprimer ce trade
                             </button>
                           </div>
+                          {(t.gpt_macro_bias || t.gpt_bias || t.news_check) && (
+                            <div className="rejection-detail">
+                              {t.news_check && (
+                                <div className="rejection-reasons" style={{ marginBottom: 6 }}>
+                                  <span className="rejection-reasons-label">News check:</span>
+                                  {t.news_check.nearby_events?.length > 0
+                                    ? t.news_check.nearby_events.map((e, i) => (
+                                        <span key={i} className="rejection-reason-chip">
+                                          {e.title} ({e.country}) {e.minutes_away > 0 ? `dans ${Math.round(e.minutes_away)}min` : `il y a ${Math.round(Math.abs(e.minutes_away))}min`}
+                                        </span>
+                                      ))
+                                    : <span className="rejection-reason-chip">Aucune news proche</span>
+                                  }
+                                </div>
+                              )}
+                              {(t.gpt_macro_bias || t.gpt_bias) && (
+                                <>
+                                  <div className="rejection-header">
+                                    <span className={`pill-dir ${(t.gpt_macro_bias || t.gpt_bias) === 'BULLISH' ? 'long' : (t.gpt_macro_bias || t.gpt_bias) === 'BEARISH' ? 'short' : ''}`}>
+                                      GPT: {t.gpt_macro_bias || t.gpt_bias}
+                                    </span>
+                                    {(t.gpt_macro_confidence ?? t.gpt_confidence) != null && (
+                                      <span className="rejection-confidence">Confiance: {t.gpt_macro_confidence ?? t.gpt_confidence}%</span>
+                                    )}
+                                  </div>
+                                  {(t.gpt_macro_analysis || t.gpt_analysis) && <p className="rejection-analysis">{t.gpt_macro_analysis || t.gpt_analysis}</p>}
+                                </>
+                              )}
+                              {Array.isArray(t.ichimoku_reasons) && t.ichimoku_reasons.length > 0 && (
+                                <div className="rejection-reasons">
+                                  <span className="rejection-reasons-label">Ichimoku:</span>
+                                  {t.ichimoku_reasons.map((r, i) => (
+                                    <span key={i} className="rejection-reason-chip">{r}</span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
                           {tradeEvents.loading && <p className="events-loading">Chargement...</p>}
                           {!tradeEvents.loading && tradeEvents.data && tradeEvents.data.length === 0 && (
                             <p className="events-empty">Aucun évènement</p>
@@ -845,7 +938,10 @@ function App() {
                 })}
               </div>
             </div>
-          )}
+            ) : (
+              <div className="empty-state"><p>Aucun trade pour ces filtres</p></div>
+            )
+          })()}
           {Array.isArray(trades.data) && trades.data.length === 0 && (
             <div className="empty-state"><p>Aucun trade enregistré</p></div>
           )}

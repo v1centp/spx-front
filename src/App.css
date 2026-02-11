@@ -729,15 +729,39 @@ label {
   overflow-y: auto;
 }
 
+.trade-filters {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.65rem;
+  flex-wrap: wrap;
+}
+
+.trade-filters select,
+.trade-filters input[type="date"] {
+  padding: 0.35rem 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  background: #fff;
+  color: #1e293b;
+}
+
 .trade-table {
   width: 100%;
   font-size: 0.82rem;
   white-space: nowrap;
 }
 
+.cell-instrument {
+  font-size: 0.78rem;
+  color: #4b5563;
+  font-weight: 500;
+}
+
 .trade-header-row {
   display: grid;
-  grid-template-columns: 1fr 0.8fr 0.7fr 0.6fr 0.6fr 0.6fr 0.5fr 0.6fr 0.6fr 0.7fr 0.6fr 0.8fr;
+  grid-template-columns: 1fr 0.8fr 0.8fr 0.7fr 0.6fr 0.6fr 0.6fr 0.5fr 0.6fr 0.6fr 0.7fr 0.6fr 0.8fr;
   align-items: center;
   padding: 0.55rem 0.65rem;
   background: #111827;
@@ -786,7 +810,7 @@ label {
 
 .trade-row-clickable {
   display: grid;
-  grid-template-columns: 1fr 0.8fr 0.7fr 0.6fr 0.6fr 0.6fr 0.5fr 0.6fr 0.6fr 0.7fr 0.6fr 0.8fr;
+  grid-template-columns: 1fr 0.8fr 0.8fr 0.7fr 0.6fr 0.6fr 0.6fr 0.5fr 0.6fr 0.6fr 0.7fr 0.6fr 0.8fr;
   align-items: center;
   padding: 0.5rem 0.65rem;
   cursor: pointer;
