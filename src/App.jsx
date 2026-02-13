@@ -17,7 +17,7 @@ const tabs = [
   { key: 'stats', label: 'Stats', icon: '\u{1F4CA}' },
 ]
 
-const LOG_LEVELS = ['', 'TRADING', 'OANDA', 'INFO', 'ERROR', 'NO_TRADING', 'GPT']
+const LOG_LEVELS = ['', 'TRADING', 'OANDA', 'INFO', 'ERROR', 'NO_TRADING']
 const INSTRUMENTS = [
   { sym: 'SPX', label: 'S&P 500', source: 'polygon', decimals: 1 },
   { sym: 'NDX', label: 'Nasdaq 100', source: 'polygon', decimals: 1 },
@@ -56,7 +56,7 @@ function App() {
   const [newsEvents, setNewsEvents] = useState(emptyPanel)
   const [newsHistory, setNewsHistory] = useState(emptyPanel)
 
-  const [logParams, setLogParams] = useState({ limit: 50, level: '', contains: '', tag: '', trade_id: '' })
+  const [logParams, setLogParams] = useState({ limit: 50, level: '', contains: '', tag: '', trade_id: '', date: '' })
   const [logTags, setLogTags] = useState([])
   const [candlesDay, setCandlesDay] = useState(() => new Date().toISOString().slice(0, 10))
   const [instrument, setInstrument] = useState('SPX')
@@ -179,6 +179,7 @@ function App() {
       if (logParams.contains) params.append('contains', logParams.contains)
       if (logParams.tag) params.append('tag', logParams.tag)
       if (logParams.trade_id) params.append('trade_id', logParams.trade_id)
+      if (logParams.date) params.append('date', logParams.date)
       const data = await fetchJson(`/api/logs?${params.toString()}`)
       setLogs({ data, loading: false, error: null })
     } catch (err) {
@@ -1219,6 +1220,14 @@ function App() {
               min={1}
               max={500}
               onChange={(e) => setLogParams((p) => ({ ...p, limit: Number(e.target.value) }))}
+            />
+          </div>
+          <div className="control-group">
+            <label>Jour</label>
+            <input
+              type="date"
+              value={logParams.date}
+              onChange={(e) => setLogParams((p) => ({ ...p, date: e.target.value }))}
             />
           </div>
           <div className="control-group">
